@@ -1,0 +1,25 @@
+# Archivos que git NO debe guardar: se generan al compilar (colcon build) y se pueden rehacer.
+# build/    archivos intermedios de compilación
+# install/  lo compilado y listo para usar (lo que carga "source install/setup.bash")
+# log/      registros de cada compilación
+# __pycache__/  caché de Python (.pyc)
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+__pycache__/
+# Documentación de terceros con derechos reservados (datasheets, manuales, CAD, imágenes de
+# Toolbox Robotics, Orbbec, Hiwonder...): se guarda solo en el PC. Git versiona únicamente el
+# README.md, que dice qué es cada archivo y de dónde descargarlo.
+docs/hardware/*
+!docs/hardware/README.md
+# Capturas de la cámara de la pinza (ros2 run andesrobot_arm capturar_camara): datos de prueba,
+# cada una pesa varios MB (la nube .ply), no van al repo.
+ros2_ws/capturas/
+# Entrenamientos y evaluaciones del paper (rl/): modelos, logs y figuras se regeneran con
+# rl/scripts/lote.sh; pesan y cambian en cada corrida. Se versiona solo el código.
+rl/runs/
+rl/resultados/
+.pytest_cache/
+rl/resultados_estres/
+# rl/politicas/*.npz (políticas exportadas, 120 KB c/u) SÍ se versionan: las usa la validación en Gazebo.
+resumen_gazebo.csv

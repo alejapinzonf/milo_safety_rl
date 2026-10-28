@@ -1,0 +1,12 @@
+# Simulador 2D + entrenamiento (no necesita ROS ni Docker). Probado con Python 3.11-3.13.
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+pillow>=9
+pandas>=2.0
+gymnasium>=1.0
+stable-baselines3>=2.3
+torch>=2.2
+pytest>=7
+# opcional: curvas en vivo con `tensorboard --logdir runs/tb`
+# tensorboard>=2.14

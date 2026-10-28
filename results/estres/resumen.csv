@@ -1,0 +1,7 @@
+metodo,escenario,episodios,exito,agarro,choque,viol_iso,exposicion,costo_soc,t,t_ciego_mov,despejes
+reglas,ciego,300,0.017,0.913,0.000,0.000,0.746,0.000,45.320,0.416,0.913
+reglas,ciego_caminando,300,0.010,0.610,0.000,0.000,0.501,1.581,46.206,0.255,0.610
+reglas_tarde,ciego,300,0.020,0.913,0.000,0.000,0.746,0.000,46.266,2.807,0.913
+reglas_tarde,ciego_caminando,300,0.010,0.610,0.000,0.000,0.501,1.606,46.934,1.688,0.607
+reglas_tarde_sin_memoria,ciego,300,0.017,0.913,0.033,0.000,0.746,0.000,44.136,3.449,0.880
+reglas_tarde_sin_memoria,ciego_caminando,300,0.010,0.610,0.010,0.000,0.501,1.606,46.069,2.031,0.597
