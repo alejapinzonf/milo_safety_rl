@@ -37,7 +37,7 @@ import numpy as np
 from . import config as C
 
 LN19 = math.log(19.0)
-EDAD_MAX = 0.5  # [s] detecciones más viejas no se usan (ver filtrar)
+EDAD_MAX = 0.5
 
 
 @dataclass
@@ -130,39 +130,31 @@ def filtrar(v, w, th, pts, brazo, personas, p, hay_movimiento=False):
     w = max(-C.W_MAX, min(C.W_MAX, w))
     if p.activo:
         punta, hw, r_giro = brazo.punta_x(), brazo.medio_ancho(), brazo.radio_giro()
-    else:  # filtro de fábrica: no sabe del brazo
+    else:
         punta, hw = C.FP_X_MAX, C.FP_HW
         r_giro = max(math.hypot(x, C.FP_HW) for x in (C.FP_X_MIN, C.FP_X_MAX))
     hw_c = hw + p.margen_lateral
     d_f, d_a = corredor(pts, C.FP_X_MIN, punta, hw_c)
     info['d_frente'], info['d_atras'] = d_f, d_a
-    # 1) rampa sigmoide (lo que pidió el PPO)
     if v > 0:
         v *= rampa(d_f, th.d_stop_f, th.d_stop_f + th.d_slow_extra)
     elif v < 0:
         v *= rampa(d_a, th.d_stop_s, th.d_stop_s + th.d_slow_extra)
     info['v_rampa'] = v
     if p.activo:
-        # 2) v_cap frente a muebles
         d = d_f if v > 0 else d_a
         cap = v_cap(d, p.d_min_mueble, p.a_frenado, p.t_reaccion)
-        # 3) separación ISO frente a personas que están hacia donde se mueve
         for pos, vel, edad, cota in personas:
-            # personas hacia donde se mueve (con 30 cm de margen: las que van al lado cuentan en
-            # los dos sentidos, por el error del detector)
             if (v > 0 and pos[0] <= -0.3) or (v < 0 and pos[0] >= 0.3) or v == 0:
                 continue
             v_h = _v_h(vel, edad, cota, hay_movimiento)
             d_h = dist_huella(pos, C.FP_X_MIN, punta, hw)
-            # + C.DT: en tiempo discreto la condición tiene que seguir valiendo en el PRÓXIMO paso
-            # (la persona y el robot se mueven un DT antes de que el escudo vuelva a decidir)
             resto = d_h - v_h * (p.t_reaccion + p.t_parada + C.DT) - p.c_intrusion \
                 - p.z_detector - p.z_robot
             cap = min(cap, v_cap(resto, 0.0, p.a_frenado, p.t_reaccion + C.DT))
         if abs(v) > cap:
             v = math.copysign(cap, v)
             info['intervino'] = True
-    # 4) giro: en el lugar, o siempre que el brazo esté afuera de la base
     brazo_afuera = p.activo and punta > C.FP_X_MAX + 1e-6
     if w != 0.0 and (abs(v) < 0.02 or brazo_afuera):
         r_min = float(np.hypot(pts[:, 0], pts[:, 1]).min()) if len(pts) else math.inf

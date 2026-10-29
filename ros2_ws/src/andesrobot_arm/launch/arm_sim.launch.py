@@ -50,9 +50,6 @@ def robot_description_urdf(simple_collision, camara):
         'simple_collision': simple_collision,
         'gripper_camera': camara,
     })
-    # gazebo_ros2_control (Humble) le vuelve a pasar robot_description al controller_manager
-    # como argumento de línea de comandos, y si el URDF tiene comentarios no lo puede leer
-    # (el controller_manager nunca arranca). El xacro de Milo tiene muchos: se borran aquí.
     _strip_comments(doc)
     return doc.toxml()
 
@@ -61,7 +58,6 @@ def launch_setup(context):
     urdf = robot_description_urdf(LaunchConfiguration('simple_collision').perform(context),
                                   LaunchConfiguration('camara').perform(context))
 
-    # robot_state_publisher: publica /robot_description y las TF, con el reloj de Gazebo.
     rsp = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -69,7 +65,6 @@ def launch_setup(context):
         parameters=[{'robot_description': urdf, 'use_sim_time': True}],
     )
 
-    # Poner a Milo en Gazebo, 2 cm sobre el suelo.
     spawn = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
@@ -77,7 +72,6 @@ def launch_setup(context):
         output='screen',
     )
 
-    # Arrancar los controladores (definidos en config/arm_controllers.yaml).
     spawner = Node(
         package='controller_manager',
         executable='spawner',
@@ -86,7 +80,6 @@ def launch_setup(context):
         output='screen',
     )
 
-    # Solo si spawn_entity terminó bien; si no, el spawner se quedaría esperando para siempre.
     def start_controllers_if_spawned(event, context):
         if event.returncode != 0:
             return [LogInfo(msg='spawn_entity falló: no arranco los controladores. Si el '
@@ -110,9 +103,6 @@ def launch_setup(context):
         parameters=sim_time,
         condition=IfCondition(LaunchConfiguration('rviz')),
     )
-    # Mesa con tres objetos frente a Milo (worlds/mesa_prueba.sdf): algo que la cámara vea a
-    # 0.6-1 m (en la arena no hay nada a menos de 2.5 m, el alcance de la profundidad) y que el
-    # brazo alcance.
     mesa = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
@@ -126,7 +116,6 @@ def launch_setup(context):
 
 
 def generate_launch_description():
-    # Gazebo (gzserver + gzclient) con el launch oficial de gazebo_ros.
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare('gazebo_ros'), 'launch', 'gazebo.launch.py'])),
@@ -144,8 +133,6 @@ def generate_launch_description():
                               description='Abrir la ventana de Gazebo'),
         DeclareLaunchArgument('rviz', default_value='true',
                               description='Abrir RViz con el marcador'),
-        # Con cajas simples el brazo NO tiene colisión propia (y queda una caja fija donde estaría
-        # el brazo bloqueado): por eso aquí las mallas CAD son el default.
         DeclareLaunchArgument('simple_collision', default_value='false',
                               description='true = colisiones con cajas en vez de mallas CAD'),
         DeclareLaunchArgument('camara', default_value='true',

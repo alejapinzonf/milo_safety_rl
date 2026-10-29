@@ -16,22 +16,17 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        # A dónde manda el filtro los comandos ya revisados (cambia entre sim y robot).
         DeclareLaunchArgument('cmd_vel_out', default_value='/cmd_vel'),
-        # De dónde lee los comandos y qué archivo de parámetros usa (teleop o navegación).
         DeclareLaunchArgument('cmd_vel_in', default_value='/cmd_vel_teleop'),
         DeclareLaunchArgument('config', default_value='safety.yaml'),
         Node(
             package='andesrobot_safety',
-            # "safety_filter" es el ejecutable que define setup.py (entry_points).
             executable='safety_filter',
             name='safety_filter',
             output='screen',
-            # Parámetros: los de config/safety.yaml (distancias, velocidades) + el reloj.
             parameters=[PathJoinSubstitution([FindPackageShare('andesrobot_safety'),
                                               'config', LaunchConfiguration('config')]),
                         {'use_sim_time': LaunchConfiguration('use_sim_time')}],
-            # El nodo publica en "cmd_vel"; aquí lo renombramos al destino real.
             remappings=[('cmd_vel', LaunchConfiguration('cmd_vel_out')),
                         ('cmd_vel_teleop', LaunchConfiguration('cmd_vel_in'))],
         ),

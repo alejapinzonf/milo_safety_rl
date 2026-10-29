@@ -1,0 +1,2 @@
+modo,repeticion,objeto,resultado,t_total,t_nav,margen_final,exposicion,costo_soc,d_min_mueble,d_min_persona,choque,intervenciones,giros_bloqueados,violaciones_iso,intrusiones_iso,recorrido
+ppo,0,taza_comedor,falla_nav,0.1,nan,-9.583,0.0,0.0,0.634,inf,0,0,0,0,0,0.0

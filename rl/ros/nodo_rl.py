@@ -21,7 +21,7 @@ import os
 import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(AQUI))  # rl/  (en el contenedor: /rl)
+sys.path.insert(0, os.path.dirname(AQUI))
 
 import numpy as np  # noqa: E402
 import rclpy  # noqa: E402
@@ -40,7 +40,18 @@ from tf2_ros import Buffer, TransformListener  # noqa: E402
 
 from milo_rl import config as C  # noqa: E402
 from milo_rl.adaptador import Adaptador, Persona, PoliticaNumpy, objeto_desde_yaml  # noqa: E402
+from milo_rl.caminantes import Ruta  # noqa: E402
 from milo_rl.mision import COLUMNAS, Mision  # noqa: E402
+
+try:
+    from gazebo_msgs.srv import SetEntityState  # noqa: E402
+except ImportError:  # pragma: no cover
+    SetEntityState = None
+
+
+ESPERA_ARRANQUE = 8.0
+MAX_REINTENTOS = 8
+T_REINTENTO = 3.0
 
 
 def yaw_de(q):
@@ -73,10 +84,19 @@ class NodoRL(Node):
                 raise SystemExit(f'{n}: no tiene pose de pre-agarre (¿objeto en el suelo?)')
             objetivos.append((n, objeto_desde_yaml(n, d), tuple(d['pre'])))
         personas = []
+        self.caminantes = []
+        rng_fase = np.random.default_rng(int(P('semilla')))
         if P('personas_yaml'):
             with open(P('personas_yaml')) as fh:
                 for i, (n, d) in enumerate(yaml.safe_load(fh).items()):
-                    personas.append(Persona(i, (d['x'], d['y'])))
+                    if d.get('tipo') == 'caminante':
+                        ruta = Ruta(d['ruta'], d.get('vel', 0.8), d.get('pausa', 1.0))
+                        ruta.fase = float(rng_fase.uniform(0, ruta.periodo))
+                        h = Persona(i, d['ruta'][0])
+                        self.caminantes.append((n, h, ruta))
+                        personas.append(h)
+                    else:
+                        personas.append(Persona(i, (d['x'], d['y'])))
         self.get_logger().info(f'modo={modo}, {len(objetivos)} objetos, {len(personas)} personas')
         self.ad = Adaptador(objetivos[0][1], personas, semilla=int(P('semilla')), modo=modo)
         self.mision = Mision(self.ad, objetivos, pol, int(P('repeticiones')))
@@ -91,6 +111,10 @@ class NodoRL(Node):
         self.t_cmd_nav = -1e9
         self.goal_handle = None
         self.filas_escritas = 0
+        self.t_listo0 = None
+        self.meta_actual = None
+        self.reintentos = 0
+        self.reenviar_en = None
 
         self.create_subscription(LaserScan, 'scan', self.on_scan, qos_profile_sensor_data)
         self.create_subscription(Odometry, 'odom', self.on_odom, 10)
@@ -98,11 +122,19 @@ class NodoRL(Node):
         self.pub = self.create_publisher(Twist, P('cmd_out'), 10)
         self.pub_estado = self.create_publisher(String, 'rl/estado', 10)
         self.nav = ActionClient(self, NavigateToPose, 'navigate_to_pose')
-        self.create_timer(0.05, self.paso)  # 20 Hz, como el safety_filter
+        self.create_timer(0.05, self.paso)
+        self.t_camina0 = None
+        self.set_estado = None
+        self.set_pendiente = {}
+        if self.caminantes:
+            if SetEntityState is None:
+                raise SystemExit('Hay caminantes pero falta gazebo_msgs (¿ROS con gazebo_ros?)')
+            self.set_estado = [self.create_client(SetEntityState, nombre) for nombre in
+                               ('/gazebo/set_entity_state', '/set_entity_state')]
+            self.create_timer(0.05, self.mover_caminantes)
         self.create_timer(1.0, self.informe)
         self.fin_t = None
 
-    # ------------------------------------------------------------------------------------------
     def on_odom(self, msg):
         self.v, self.w = msg.twist.twist.linear.x, msg.twist.twist.angular.z
 
@@ -143,14 +175,13 @@ class NodoRL(Node):
         ang[ok] = np.arctan2(y, x)
         return ang, rr
 
-    # ------------------------------------------------------------------------------------------
     def paso(self):
         out = Twist()
         pose = self.pose_mapa()
         if pose is not None and self.scan is not None and self.laser_tf is not None \
                 and not self.mision.terminada:
-            if self.nav.server_is_ready():
-                t = self.get_clock().now().nanoseconds * 1e-9
+            t = self.get_clock().now().nanoseconds * 1e-9
+            if self.nav.server_is_ready() and self.esperar_arranque(t):
                 ang, rr = self.scan_en_base()
                 cmd = self.cmd_nav if t - self.t_cmd_nav < 0.5 else (0.0, 0.0)
                 sal = self.mision.paso(t, pose, self.v, self.w, ang, rr, cmd,
@@ -159,14 +190,53 @@ class NodoRL(Node):
                 if sal['cancelar'] and self.goal_handle is not None:
                     self.goal_handle.cancel_goal_async()
                 if sal['meta'] is not None:
+                    self.reintentos = 0
                     self.mandar_goal(sal['meta'])
+                elif self.reenviar_en is not None and t >= self.reenviar_en:
+                    self.reenviar_en = None
+                    self.mandar_goal(self.meta_actual)
                 self.guardar_filas()
         elif self.mision.terminada and self.fin_t is None:
             self.fin_t = self.get_clock().now()
             self.get_logger().info('Misión terminada.')
-        self.pub.publish(out)  # SIEMPRE publica (si el nodo cae, el robot se detiene solo)
+        self.pub.publish(out)
+
+    def mover_caminantes(self):
+        """Mueve a las personas en Gazebo (set_entity_state, 20 Hz) y le dice al filtro dónde
+        están y a qué velocidad van (la verdad del simulador; el detector del adaptador sigue
+        viéndolas solo cuando el lidar tiene un punto sobre ellas, con su ruido)."""
+        cli = next((c for c in self.set_estado if c.service_is_ready()), None)
+        t = self.get_clock().now().nanoseconds * 1e-9
+        tau = 0.0 if self.t_camina0 is None else t - self.t_camina0
+        for nombre, h, ruta in self.caminantes:
+            pos, vel, yaw = ruta.estado(tau) if self.t_camina0 is not None else \
+                (np.asarray(ruta.p[0], float), np.zeros(2), math.atan2(*(ruta.p[1] - ruta.p[0])[::-1]))
+            h.pos, h.vel = np.asarray(pos, float), np.asarray(vel, float)
+            if cli is None or self.set_pendiente.get(nombre) is not None \
+                    and not self.set_pendiente[nombre].done():
+                continue
+            req = SetEntityState.Request()
+            req.state.name = nombre
+            req.state.reference_frame = 'world'
+            req.state.pose.position.x, req.state.pose.position.y = float(pos[0]), float(pos[1])
+            req.state.pose.orientation.z = math.sin(yaw / 2)
+            req.state.pose.orientation.w = math.cos(yaw / 2)
+            self.set_pendiente[nombre] = cli.call_async(req)
+
+    def esperar_arranque(self, t):
+        """True cuando pasaron ESPERA_ARRANQUE s con TF, scan y Nav2 listos (AMCL y los costmaps
+        necesitan unos segundos; si la misión arranca antes, Nav2 rechaza la meta)."""
+        if self.t_listo0 is None:
+            self.t_listo0 = t
+            self.get_logger().info(f'Nav2 listo; espero {ESPERA_ARRANQUE:.0f} s a que AMCL y los '
+                                   'costmaps se asienten...')
+        listo = t - self.t_listo0 >= ESPERA_ARRANQUE
+        if listo and self.t_camina0 is None:
+            self.t_camina0 = t
+        return listo
 
     def mandar_goal(self, meta):
+        self.meta_actual = meta
         g = NavigateToPose.Goal()
         g.pose = PoseStamped()
         g.pose.header.frame_id = self.mapf
@@ -181,14 +251,20 @@ class NodoRL(Node):
     def on_goal(self, fut):
         gh = fut.result()
         if not gh.accepted:
-            self.mision.nav_resultado(False)
+            self.reintentos += 1
+            if self.reintentos <= MAX_REINTENTOS:
+                self.get_logger().warn(f'Nav2 rechazó la meta (intento {self.reintentos}/'
+                                       f'{MAX_REINTENTOS}); reintento en {T_REINTENTO:.0f} s')
+                self.reenviar_en = self.get_clock().now().nanoseconds * 1e-9 + T_REINTENTO
+            else:
+                self.mision.nav_resultado(False)
             return
+        self.reintentos = 0
         self.goal_handle = gh
         gh.get_result_async().add_done_callback(lambda f, gh=gh: self.on_result(f, gh))
 
     def on_result(self, fut, gh):
-        ok = fut.result().status == 4  # GoalStatus.STATUS_SUCCEEDED
-        # solo vale el resultado del goal vigente (el de un goal cancelado llega tarde)
+        ok = fut.result().status == 4
         if gh is self.goal_handle and self.mision.estado == 'navegando':
             self.mision.nav_resultado(ok)
 

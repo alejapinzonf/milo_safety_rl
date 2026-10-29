@@ -47,7 +47,6 @@ class ArmIkNode(Node):
 
     def __init__(self):
         super().__init__('arm_ik_node')
-        # Parámetros (se cambian con --ros-args -p nombre:=valor).
         self.position_only = self.declare_parameter('position_only', False).value
         self.max_joint_velocity = self.declare_parameter('max_joint_velocity', 0.5).value
         use_lift = self.declare_parameter('use_lift', True).value
@@ -57,8 +56,6 @@ class ArmIkNode(Node):
         self.action_name = self.declare_parameter(
             'action_name', '/arm_controller/follow_joint_trajectory').value
 
-        # Con el lift la IK va de base_footprint a gripper_tcp (7 articulaciones). lift_weight > 1
-        # hace que prefiera mover el brazo y use el lift solo cuando el brazo no alcanza.
         self.arm = ArmKinematics.from_xacro(**({'base': LIFT_BASE} if use_lift else {}))
         is_lift = np.array([n == LIFT_JOINT for n in self.arm.joint_names])
         self.weights = np.where(is_lift, lift_weight, 1.0)
@@ -76,7 +73,6 @@ class ArmIkNode(Node):
             f"{self.arm.base}, {'solo posición' if self.position_only else 'pose completa'})")
 
     def on_joint_states(self, msg):
-        # /joint_states puede venir de varias fuentes (ruedas, brazo): se juntan por nombre.
         self.current.update(zip(msg.name, msg.position))
 
     def on_target(self, msg):
@@ -91,7 +87,6 @@ class ArmIkNode(Node):
         frame = msg.header.frame_id or self.arm.base
         if frame != self.arm.base:
             try:
-                # La TF más reciente: el objetivo es una meta, no una medición con hora.
                 tf = self.tf_buffer.lookup_transform(self.arm.base, frame, Time())
             except TransformException as exc:
                 log.error(f"No hay TF '{frame}' -> '{self.arm.base}': {exc}")
@@ -131,11 +126,8 @@ class ArmIkNode(Node):
     def on_result(self, future):
         result = future.result().result
         if result.error_code == FollowJointTrajectory.Result.SUCCESSFUL:
-            # Con las tolerancias de arm_controllers.yaml esto significa que el brazo llegó de
-            # verdad (cada articulación a menos de 0.02 rad de su objetivo, el lift a 5 mm).
             self.get_logger().info('Objetivo alcanzado.')
             return
-        # Códigos de FollowJointTrajectory.Result, explicados.
         motivos = {
             FollowJointTrajectory.Result.GOAL_TOLERANCE_VIOLATED:
                 'el brazo no llegó: quedó lejos del objetivo al terminar (¿chocó con algo?)',

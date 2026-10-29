@@ -23,7 +23,7 @@ import numpy as np
 
 try:
     import gymnasium as gym
-except ImportError:  # el contenedor de ROS no lo trae: alcanza un mínimo (solo para el adaptador)
+except ImportError:
     from . import _gym_minimo as gym
 
 from . import config as C
@@ -38,7 +38,7 @@ from .memoria import Memoria
 FASES = ['navegar', 'orientar', 'acercar', 'brazo', 'retroceder', 'salir']
 N_SECT = 16
 N_OBS = N_SECT * 3 + 6 + 4 + len(FASES) + 8 + 12 + 6 + 5 + 2
-PROXEMIA = 1.2  # [m] espacio personal (Hall)
+PROXEMIA = 1.2
 
 
 class MiloEnv(gym.Env):
@@ -58,7 +58,6 @@ class MiloEnv(gym.Env):
         self.brazo = Brazo()
         self.memoria = Memoria(self.cfg.escudo)
 
-    # --------------------------------------------------------------------------------------------
     def set_lambdas(self, l_exp, l_soc):
         self.lambdas = (float(l_exp), float(l_soc))
 
@@ -86,7 +85,6 @@ class MiloEnv(gym.Env):
                          inv(th.d_slow_extra, R.d_slow_extra), inv(th.v_max, R.v_max),
                          1.0 if despejar else -1.0], np.float32)
 
-    # --------------------------------------------------------------------------------------------
     def reset(self, seed=None, options=None):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
@@ -101,11 +99,10 @@ class MiloEnv(gym.Env):
         self.memoria.reset()
         self.det = Detector(self.cfg.escenario.sigma_persona, self.cfg.escenario.p_perder_persona,
                             self.rng)
-        # "percepción" del objeto: posición con error fijo para todo el episodio
         self.obj_est = e.objeto['pos'] + self.rng.normal(0, self.cfg.escenario.sigma_objeto, 2)
         self.estaticas = list(e.estaticas)
         self._prep_estaticas()
-        self.ocultas_vistas = {}  # id(forma) -> centro, de las cajas no mapeadas que el lidar vio
+        self.ocultas_vistas = {}
         self._replan_oculta = False
         self.fase = 'navegar'
         self.camino = e.planificar(self.pose[:2], e.aprox['W'])
@@ -138,7 +135,6 @@ class MiloEnv(gym.Env):
         self.traz_est = Trazador(self.estaticas, C.LIDAR_Z)
         self._bbox = [(f, _centro(f), _radio(f)) for f in self.estaticas]
 
-    # --------------------------------------------------------------------------------------------
     def step(self, accion):
         accion = np.asarray(accion, np.float32)
         th, despejar = self.accion_a_theta(accion)
@@ -166,7 +162,6 @@ class MiloEnv(gym.Env):
             for h in self.esc.humanos:
                 h.paso(C.DT, self._bloquea_humano)
             self.t += C.DT
-            # costos y castigos de este paso (con lo que realmente hizo el robot)
             rel = max(0.0, C.D_STOP_NOMINAL - (self.th.d_stop_f if self.v >= 0
                                                else self.th.d_stop_s)) / C.D_STOP_NOMINAL
             c_exp += abs(self.v) / C.V_MAX * rel * C.DT
@@ -175,20 +170,18 @@ class MiloEnv(gym.Env):
             if frac > 0 and abs(self.v) > 0.02:
                 self.m['t_ciego_mov'] += C.DT
             c_soc += self._metricas_personas()
-            # choques
             if self._choque():
                 r += R.choque
                 self.m['motivo'] = 'choque'
                 fin = True
                 break
-            # eventos de la tarea
             if ev == 'agarro':
                 if margen_alcance(a_local(self.pose, self.esc.objeto['pos']),
                                   self.esc.objeto['z']) >= -0.02:
                     r += R.agarrar
                     self.m['agarro'] = True
                     self._iniciar('retroceder')
-                    if self.esc.objeto['forma'] is not None:  # se lo llevó del suelo
+                    if self.esc.objeto['forma'] is not None:
                         self.estaticas = [f for f in self.estaticas
                                           if f is not self.esc.objeto['forma']]
                         self._prep_estaticas()
@@ -210,7 +203,6 @@ class MiloEnv(gym.Env):
                 fin = True
                 break
             self._scan()
-        # shaping por progreso (potencial) + paso
         phi = self._potencial()
         r += R.progreso * (phi - self.phi) + R.paso
         self.phi = phi
@@ -225,9 +217,6 @@ class MiloEnv(gym.Env):
         self.accion_prev = accion
         return self._obs(), float(r_pen), fin, trunc, info
 
-    # --------------------------------------------------------------------------------------------
-    # Mundo
-    # --------------------------------------------------------------------------------------------
     def _planta(self, v, w):
         def lim(x, x_des, a_sube):
             freno = abs(x_des) < abs(x) or x_des * x < 0
@@ -239,7 +228,6 @@ class MiloEnv(gym.Env):
         self.pose = np.array([x + self.v * math.cos(psi) * C.DT,
                               y + self.v * math.sin(psi) * C.DT, ang_norm(psi + self.w * C.DT)])
         self.m['recorrido'] += abs(self.v) * C.DT
-        # odometría: integra con error (deriva) -> la memoria se desalinea con lo recorrido
         vo = self.v * (1 + self.rng.normal(0, 0.01))
         wo = self.w * (1 + self.rng.normal(0, 0.02)) + self.rng.normal(0, 0.002)
         xo, yo, po = self.odom
@@ -269,8 +257,6 @@ class MiloEnv(gym.Env):
                 self.m['choque_mueble'] += 1
                 self.m['choque_oculta'] += int(f.tipo == 'caja_oculta')
                 return True
-            # el brazo contra muebles/muros solo cuenta con la base moviéndose: mientras alcanza,
-            # agarra o se retrae, eso lo resuelve el planificador del brazo (fuera del paper)
             if mover_brazo and f.tipo not in ('mueble_obj', 'objeto') and chocan(cap, f):
                 self.m['choque_mueble'] += 1
                 self.m['choque_oculta'] += int(f.tipo == 'caja_oculta')
@@ -309,7 +295,6 @@ class MiloEnv(gym.Env):
             d = np.where(mas_cerca, d2, d)
         d = d + self.rng.normal(0, C.LIDAR_SIGMA, len(d))
         self.tapado = tapado
-        # cajas no mapeadas: el lidar las ve (si no las tapa nada) y el ejecutivo replanifica
         for k in np.nonzero((ids >= 0) & ~tapado & (d < C.LIDAR_RANGO - 0.05))[0]:
             f = self.traz_est.formas[ids[k]]
             if f.tipo == 'caja_oculta' and id(f) not in self.ocultas_vistas:
@@ -320,12 +305,9 @@ class MiloEnv(gym.Env):
         o_loc = np.array([C.LIDAR_X, 0.0])
         pts_loc = o_loc + self._dirs_loc * d[:, None]
         hit = ok & (d < C.LIDAR_RANGO - 0.05)
-        # memoria (frame odometría): todos los rayos no tapados, también los que no tocan nada
         pts_odom = a_mundo(self.odom, pts_loc[ok])
         self.memoria.guardar(pts_odom, self.t, self.s_odom, self.odom[2])
-        # personas
         self.det.actualizar(self.t, self.esc.humanos, vistos)
-        # obstáculos para el filtro: lidar + memoria en los rayos tapados
         obst = [pts_loc[hit]]
         self.d_mem = np.full(C.LIDAR_RAYOS, C.LIDAR_RANGO)
         if tapado.any() and self.cfg.escudo.activo and self.cfg.escudo.usar_memoria:
@@ -354,29 +336,20 @@ class MiloEnv(gym.Env):
             d = dist_huella(p, C.FP_X_MIN, punta, hw)
             self.m['d_min_persona'] = min(self.m['d_min_persona'], d)
             if d < PROXEMIA:
-                # incomodidad: estar cerca Y moverse rápido (quieto al lado de alguien no molesta)
                 costo += (PROXEMIA - d) / PROXEMIA * (0.2 + abs(self.v) / C.V_MAX) * C.DT
                 self.m['t_personal'] += C.DT
             if d < 0.45:
                 self.m['t_intimo'] += C.DT
-            # violación ISO: el escudo DEJÓ que el robot siguiera yendo hacia la persona estando
-            # más cerca que S_p (con la posición y velocidad REALES). Si la persona se le acerca y
-            # el robot ya está frenando a fondo (v_out = 0), no es violación del robot.
             hacia = (self.v_out > 0.02 and p[0] > 0) or (self.v_out < -0.02 and p[0] < 0)
             if hacia:
                 s_p = separacion_iso(abs(self.v_out), float(np.hypot(*h.vel)), self.cfg.escudo,
                                      con_detector=False)
                 if d < s_p:
-                    # intrusión: cualquier vez (también si la persona apareció de golpe detrás de
-                    # un mueble); violación: el robot YA la tenía detectada cuando decidió seguir
                     self.m['intrusiones_iso'] += 1
                     if h.id in self._frescos:
                         self.m['violaciones_iso'] += 1
         return costo
 
-    # --------------------------------------------------------------------------------------------
-    # Ejecutivo (fijo)
-    # --------------------------------------------------------------------------------------------
     def _iniciar(self, fase):
         self.fase = fase
         self.t_quieto = 0.0
@@ -396,7 +369,7 @@ class MiloEnv(gym.Env):
             self._replan_oculta = False
         if f in ('navegar', 'salir') and self.esc.humanos and not self.det.hay_movimiento():
             self.t_replan += C.DT
-            if self.t_replan > 2.0:  # con personas, replanifica cada 2 s (como Nav2)
+            if self.t_replan > 2.0:
                 self._replanificar()
         if f == 'navegar':
             if np.hypot(*(self.pose[:2] - self.esc.aprox['W'])) < 0.15:
@@ -444,11 +417,9 @@ class MiloEnv(gym.Env):
 
     def _replanificar(self):
         meta = self.esc.aprox['W'] if self.fase == 'navegar' else self.esc.salida
-        # personas QUIETAS como obstáculos del plan (como el costmap de Nav2); a las que caminan
-        # se las espera (planificar alrededor de alguien que se mueve hace zigzaguear al robot)
         evitar = [] if self.det.hay_movimiento() else \
             [(q[0], 0.9) for q in self.det.estimaciones(self.t) if q[2] < 1.0]
-        if self.cfg.escenario.planificador_ve_oculta:  # como el costmap local
+        if self.cfg.escenario.planificador_ve_oculta:
             evitar += [(c, 0.65) for c in self.ocultas_vistas.values()]
         self.camino = self.esc.planificar(self.pose[:2], meta, evitar)
         self.k_camino = 0
@@ -461,7 +432,6 @@ class MiloEnv(gym.Env):
             return
         pide = abs(v_des) > 0.02 or abs(w_des) > 0.05
         hace = abs(v) > 0.01 or abs(w) > 0.02
-        # si lo que frena es una persona cerca, se espera (no se hace la maniobra)
         persona = any(np.hypot(*q[0]) < 2.0 for q in self._personas_local() if q[2] < 0.5)
         self.t_bloq = self.t_bloq + C.DT if (pide and not hace and not persona) else 0.0
         if self.t_bloq > 1.5:
@@ -504,7 +474,7 @@ class MiloEnv(gym.Env):
         if meta is None:
             if abs(self.v) < 0.01:
                 self.t_quieto += C.DT
-                if self.t_quieto > 3.0:  # no puede retroceder: sigue igual
+                if self.t_quieto > 3.0:
                     self._iniciar('salir')
             return None
         d = float(np.hypot(*(self.pose[:2] - meta)))
@@ -527,13 +497,9 @@ class MiloEnv(gym.Env):
             return -float(np.hypot(*(self.pose[:2] - self.esc.salida)))
         return 0.0
 
-    # --------------------------------------------------------------------------------------------
-    # Observación
-    # --------------------------------------------------------------------------------------------
     def _obs(self):
         o = []
         rng_max = 4.0
-        # lidar por sector (lo visible), fracción tapada y distancia certificada por la memoria
         vis = np.where(self.tapado, rng_max, np.minimum(self.rangos, rng_max))
         sect = np.full(N_SECT, rng_max)
         np.minimum.at(sect, self._sector, vis)
@@ -542,24 +508,20 @@ class MiloEnv(gym.Env):
         mem = np.full(N_SECT, rng_max)
         np.minimum.at(mem, self._sector, np.minimum(self.d_mem, rng_max))
         o += list(sect / rng_max) + list(tap) + list(mem / rng_max)
-        # brazo
         b = self.brazo
         oh = np.zeros(6)
         oh[b.codigo()] = 1
         o += list(oh)
         o += [b.tcp[0] / 0.7, b.tcp[1] / 0.5, (b.punta_x() - C.FP_X_MAX) / 0.6, b.radio_giro()]
-        # fase
         fz = np.zeros(len(FASES))
         fz[FASES.index(self.fase)] = 1
         o += list(fz)
-        # objeto (lo que dice la percepción)
         p = a_local(self.pose, self.obj_est)
         ob = self.esc.objeto
         donde = np.zeros(4)
         donde[['mesa', 'redonda', 'estante', 'suelo'].index(ob['donde'])] = 1
         o += [p[0] / 3, p[1] / 3, ob['z'] / 2, float(np.clip(margen_alcance(p, ob['z']), -2, 1))]
         o += list(donde)
-        # 2 personas más cercanas (según el detector)
         per = np.zeros(12)
         if self.cfg.usar_personas_en_obs:
             est = sorted(self._personas_local(), key=lambda q: np.hypot(*q[0]))[:2]
@@ -567,7 +529,6 @@ class MiloEnv(gym.Env):
                 per[i * 6:(i + 1) * 6] = [np.clip(pos[0] / 5, -2, 2), np.clip(pos[1] / 5, -2, 2),
                                           vel[0] / 1.5, vel[1] / 1.5, min(edad, 5) / 5, 1.0]
         o += list(per)
-        # movimiento
         df = min(self.info_f['d_frente'], rng_max) / rng_max
         da = min(self.info_f['d_atras'], rng_max) / rng_max
         o += [self.cmd[0] / C.V_MAX, self.cmd[1] / C.W_MAX, self.v / C.V_MAX, self.w / C.W_MAX,

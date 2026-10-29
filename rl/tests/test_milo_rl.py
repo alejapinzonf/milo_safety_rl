@@ -17,7 +17,6 @@ from milo_rl.geometria import (Caja, Capsula, Circulo, Trazador, chocan,  # noqa
                                distancia)
 
 
-# --- geometría -----------------------------------------------------------------------------------
 def test_rayo_contra_caja_y_circulo():
     caja = Caja(np.array([2.0, 0.0]), (0.5, 0.5), 0.0, (0, 1))
     cir = Circulo(np.array([0.0, 3.0]), 0.5, (0, 1))
@@ -42,11 +41,10 @@ def test_choque_rapido_igual_a_distancia_exacta():
 
 def test_alturas_separan():
     a = Caja(np.zeros(2), (1, 1), 0, (0.0, 0.37))
-    b = Caja(np.zeros(2), (1, 1), 0, (0.71, 0.75))  # cubierta de mesa sobre la base
+    b = Caja(np.zeros(2), (1, 1), 0, (0.71, 0.75))
     assert not chocan(a, b)
 
 
-# --- brazo ---------------------------------------------------------------------------------------
 def test_alcance_y_limites():
     lim_nom, lim_piso = limites_profundidad(0.8)
     assert lim_nom == pytest.approx(0.97 - 0.03 - 0.44 - 0.30, abs=0.01)
@@ -62,14 +60,13 @@ def test_brazo_tapa_lidar_en_carga_baja():
     for _ in range(60):
         b.paso(0.1)
     assert b.estado == 'carga_baja' and b.tapa_lidar()
-    assert b.radio_giro() > 0.6  # con el brazo afuera gira más ancho
+    assert b.radio_giro() > 0.6
     assert b.despejar()
     for _ in range(25):
         b.paso(0.1)
     assert b.estado == 'guardado' and not b.tapa_lidar()
 
 
-# --- escudo --------------------------------------------------------------------------------------
 def test_rampa_sigmoide():
     assert rampa(0.30, 0.30, 0.70) == 0.0
     assert rampa(0.70, 0.30, 0.70) == 1.0
@@ -88,12 +85,12 @@ def test_v_cap_frena_a_tiempo(d):
 
 def test_escudo_no_baja_del_piso():
     b = Brazo()
-    pts = np.array([[C.FP_X_MAX + 0.04, 0.0]])  # algo a 4 cm del frente
+    pts = np.array([[C.FP_X_MAX + 0.04, 0.0]])
     v, w, info = filtrar(0.4, 0.0, Theta(0.0, 0.0, 0.1, 0.4), pts, b, [], C.ParamsEscudo())
     assert v == 0.0
     v, w, info = filtrar(0.4, 0.0, Theta(0.0, 0.0, 0.1, 0.4), pts, b, [],
                          C.ParamsEscudo(activo=False))
-    assert v > 0.0  # sin escudo, el PPO puede pedir d_stop = 0 y se acerca más
+    assert v > 0.0
 
 
 def test_escudo_persona_iso():
@@ -101,17 +98,16 @@ def test_escudo_persona_iso():
     persona = [(np.array([1.0, 0.0]), np.zeros(2), 0.0, 1.0)]
     v, _, _ = filtrar(0.4, 0.0, Theta(0.05, 0.05, 0.1, 0.4), np.zeros((0, 2)), b, persona,
                       C.ParamsEscudo(), hay_movimiento=True)
-    assert v == 0.0  # caminando: S_p(0) ~ 1 m
-    quieta = [(np.array([1.0, 0.0]), np.zeros(2), 0.0, 0.3)]  # track maduro, sin velocidad
+    assert v == 0.0
+    quieta = [(np.array([1.0, 0.0]), np.zeros(2), 0.0, 0.3)]
     v, _, _ = filtrar(0.4, 0.0, Theta(0.05, 0.05, 0.1, 0.4), np.zeros((0, 2)), b, quieta,
                       C.ParamsEscudo(), hay_movimiento=False)
-    assert 0.0 < v < 0.4  # quieta: puede avanzar, más lento
+    assert 0.0 < v < 0.4
     v, _, _ = filtrar(0.4, 0.0, Theta(0.05, 0.05, 0.1, 0.4), np.zeros((0, 2)), b, persona,
                       C.ParamsEscudo(), hay_movimiento=False)
-    assert v == 0.0  # recién vista (sin velocidad confiable): se supone que camina
+    assert v == 0.0
 
 
-# --- entorno -------------------------------------------------------------------------------------
 def test_entorno_gymnasium():
     from gymnasium.utils.env_checker import check_env
     env = MiloEnv(semilla=0)
@@ -153,7 +149,7 @@ def test_escena_de_estres_tiene_caja_oculta_fuera_del_camino():
         cajas = [f for f in e.estaticas if f.tipo == 'caja_oculta']
         assert len(cajas) == 1
         assert np.hypot(*(cajas[0].c - np.asarray(e.inicio[:2]))) > 1.2
-        assert e.libre(cajas[0].c, 0.0)  # el planificador no sabe que está ahí
+        assert e.libre(cajas[0].c, 0.0)
 
 
 def test_memoria_evita_choques_con_el_brazo_tapando():

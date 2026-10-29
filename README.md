@@ -7,7 +7,7 @@ Código, resultados y texto del paper: **márgenes de seguridad adaptativos para
 rl/        simulador 2D, filtro + escudo, PPO-Lagrangiano, baselines, ablaciones, tests
            (LEEME.md = uso, METODO.md = matemáticas ↔ código, LEEME_GAZEBO.md = validación en Gazebo)
 ros2_ws/   workspace ROS 2 Humble + Gazebo Classic de Milo (la casa RoboCup@Home v2 y Nav2)
-docker/, sim.sh, robot.sh   cómo se levanta todo (ver NOTAS.md)
+docker/, sim.sh             cómo se levanta todo
 results/   resultados que salen en el paper (principal/, estres/, gazebo/) con sus figuras
 paper/     LaTeX del paper (IEEEtran, 6 páginas)
 ```

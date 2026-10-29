@@ -25,14 +25,13 @@ import humanos  # noqa: E402
 MUNDO = os.path.join(HERE, '..', 'worlds', 'robocup_casa.world')
 OBJETOS = os.path.join(HERE, '..', 'worlds', 'robocup_casa_objetos.yaml')
 SALIDA = os.path.join(HERE, '..', 'worlds', 'robocup_casa_personas')
-# nombre de la persona: (objeto junto a cuyo pre-agarre se para, sujeto de human-gazebo, pose)
 PERSONAS = {
     'persona_comedor': ('taza_comedor', 1, 'de_pie'),
     'persona_lavanderia': ('botella_laundry', 3, 'de_pie'),
     'persona_librero': ('botella_librero', 5, 'senalando'),
 }
 RES = 0.05
-LIBRE = 0.40  # [m] mínima distancia de la persona (su centro) a cualquier mueble
+LIBRE = 0.40
 
 
 def ocupacion(sdf):
@@ -88,7 +87,7 @@ def main():
                         elegido = c
         if elegido is None:
             sys.exit(f'{nombre}: no hay lugar libre junto al pre-agarre de {obj}')
-        yaw = math.atan2(py - elegido[1], px - elegido[0])  # mira hacia donde llega Milo
+        yaw = math.atan2(py - elegido[1], px - elegido[0])
         piezas = humanos.piezas_en_pose(sujeto, pose, float(elegido[0]), float(elegido[1]), yaw)
         modelos.append(humanos.modelo_sdf(nombre, piezas))
         salida[nombre] = dict(x=round(float(elegido[0]), 3), y=round(float(elegido[1]), 3),

@@ -22,7 +22,6 @@ import sys
 
 import numpy as np
 
-# figuras.py está en la misma carpeta: al importarlo procesa el xacro y carga las mallas.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import figuras as fg  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
@@ -33,15 +32,13 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else 'figuras'
 
 SURF, INK, MUTED = fg.SURF, fg.INK, fg.MUTED
 C_ARM, C_GRIP, C_FIX = fg.C_ARM, fg.C_GRIP, '#8c8b84'
-C_X, C_Y, C_Z = '#d23b3b', '#2e9d4f', '#2f6fe0'    # ejes de los frames, como RViz
-C_T, C_K, C_V = '#7a52cc', '#eb6834', '#111111'    # traslación fija, eje y q, velocidad
-ALPHA_MALLA = 0.12                                  # mallas casi transparentes
+C_X, C_Y, C_Z = '#d23b3b', '#2e9d4f', '#2f6fe0'
+C_T, C_K, C_V = '#7a52cc', '#eb6834', '#111111'
+ALPHA_MALLA = 0.12
 
-# Postura de ejemplo (la misma en los dos paneles): brazo hacia adelante, algo doblado.
 POSTURA = {'joint_2': 0.6, 'joint_3': 1.1, 'joint_5': 0.6}
-Q_LIFT = 0.30                                       # cuánto subió el lift en el panel P (m)
+Q_LIFT = 0.30
 
-# Cadena del esqueleto, de la base del brazo a la pinza (nombres de joints del URDF).
 CADENA = ['carriage_to_arm_joint', 'joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5',
           'joint_6', 'gripper_tcp_joint']
 JOINT = {j['name']: j for j in fg.JOINTS}
@@ -52,16 +49,16 @@ class Camara:
 
     def __init__(self, azim, elev):
         a, e = np.radians(azim), np.radians(elev)
-        self.c = np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])  # al ojo
-        self.r = np.array([-np.sin(a), np.cos(a), 0.0])                                # derecha
-        self.u = np.cross(self.c, self.r)                                              # arriba
+        self.c = np.array([np.cos(e) * np.cos(a), np.cos(e) * np.sin(a), np.sin(e)])
+        self.r = np.array([-np.sin(a), np.cos(a), 0.0])
+        self.u = np.cross(self.c, self.r)
 
     def P(self, p):
         p = np.asarray(p, float)
         return np.stack([p @ self.r, p @ self.u], axis=-1)
 
     def prof(self, p):
-        return np.asarray(p, float) @ self.c          # más grande = más cerca del ojo
+        return np.asarray(p, float) @ self.c
 
 
 def pos_joint(T, nombre):
@@ -93,7 +90,6 @@ def mallas(ax, cam, T, color_de):
                                      zorder=1))
 
 
-# ----------------------------------------------------------------- dibujo 2D sobre la proyección
 def flecha(ax, cam, a, b, color, lw=2.2, ms=14, ls='-', z=6):
     ax.add_patch(FancyArrowPatch(cam.P(a), cam.P(b), arrowstyle='-|>', mutation_scale=ms,
                                  color=color, lw=lw, linestyle=ls, zorder=z,
@@ -150,27 +146,25 @@ def encuadre(ax, cam, pts, margen=0.12):
     ax.axis('off')
 
 
-# ------------------------------------------------------------------------------------- paneles
 def panel_R(ax):
-    cam = Camara(azim=28, elev=16)      # desde adelante-izquierda: el hombro gira casi de frente
+    cam = Camara(azim=28, elev=16)
     T = fg.world(POSTURA)
     T0 = fg.world(dict(POSTURA, joint_2=0.0))
     i = CADENA.index('joint_2')
 
     def color_de(link):
         if link in ('arm_base_link_1', 'link_1_1', 'motor_joint_1', 'motor_joint_2'):
-            return C_FIX                # no se mueven con joint_2
+            return C_FIX
         if link.startswith(('link_', 'motor_joint_', 'gripper_servo')):
             return C_ARM
         if 'finger' in link:
             return C_GRIP
-        return None                     # base, columna, carro: fuera de este panel
+        return None
 
     mallas(ax, cam, T, color_de)
     pts, pts0 = esqueleto(T), esqueleto(T0)
     esqueleto_dibujo(ax, cam, pts, i, pts0)
 
-    # {i-1}: el frame del eslabón anterior (link_1_1) y la traslación fija T_o hasta p_i.
     Tprev = T['link_1_1']
     Jf = pos_joint(T, 'joint_2')
     pi, pe = Jf[:3, 3], T['gripper_tcp'][:3, 3]
@@ -181,7 +175,6 @@ def panel_R(ax):
     punto(ax, cam, pi, INK, s=36)
     texto(ax, cam, pi, r'$\mathbf{p}_i$', dx=-0.03, dy=-0.06, ha='right', size=12)
 
-    # Eje de giro z_i (en el mundo) y ángulo q_i entre el esqueleto en cero y el actual.
     z = Jf[:3, :3] @ (JOINT['joint_2']['axis'] / np.linalg.norm(JOINT['joint_2']['axis']))
     flecha(ax, cam, pi, pi + z * 0.22, C_K, lw=3.4, ms=18, z=7)
     texto(ax, cam, pi + z * 0.22, r'$\mathbf{z}_i$ eje de giro', color=C_K, dx=0.02,
@@ -198,7 +191,6 @@ def panel_R(ax):
           size=11.5)
     texto(ax, cam, pts0[-1], r'$q_i = 0$', color=MUTED, dx=0.03, dy=0.02, size=10)
 
-    # Pinza, palanca y la velocidad que entra al jacobiano.
     linea(ax, cam, [pi, pe], INK, lw=1.2, ls=(0, (4, 3)), z=5)
     texto(ax, cam, pi + (pe - pi) * 0.55, r'$\mathbf{p}_e-\mathbf{p}_i$ (palanca)', color=INK,
           dx=0.03, dy=-0.05, size=10.5)
@@ -220,14 +212,14 @@ def panel_R(ax):
 
 
 def panel_P(ax):
-    cam = Camara(azim=-38, elev=14)     # desde adelante-derecha: se ve la columna y el carro
+    cam = Camara(azim=-38, elev=14)
     T = fg.world(dict(POSTURA, vertical_lift_joint=Q_LIFT))
     T0 = fg.world(POSTURA)
 
     def color_de(link):
         if link in ('vertical_column_link_1', 'base_link', 'lidar_link_1',
                     'left_wheel_link_1', 'right_wheel_link_1', 'front_caster_link_1'):
-            return C_FIX                # no se mueven con el lift
+            return C_FIX
         if 'finger' in link:
             return C_GRIP
         if link.startswith(('link_', 'motor_joint_', 'gripper_servo', 'arm_base',
@@ -236,7 +228,6 @@ def panel_P(ax):
         return None
 
     mallas(ax, cam, T, color_de)
-    # Esqueleto: de la columna (frame del lift) a la pinza.
     Tcol = T['vertical_column_link_1']
     Jf = pos_joint(T, 'vertical_lift_joint')
     pi = Jf[:3, 3]
@@ -254,7 +245,6 @@ def panel_P(ax):
     punto(ax, cam, pi, INK, s=36)
     texto(ax, cam, pi, r'$\mathbf{p}_i$', dx=-0.04, dy=-0.04, ha='right', size=12)
 
-    # Eje z_i (vertical) y el avance q_i = d, como cota entre el carro en cero y el actual.
     z = Jf[:3, :3] @ JOINT['vertical_lift_joint']['axis']
     lado = -cam.r * 0.16
     eje0 = pi + lado * 1.9 + z * 0.15

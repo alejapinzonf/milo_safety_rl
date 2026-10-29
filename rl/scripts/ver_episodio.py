@@ -37,7 +37,7 @@ def main():
     args = ap.parse_args()
     cfg = C.ConfigEntorno(escenario=C.TODOS[args.escenario])
     if 'sin_memoria' in (args.metodo if not args.modelo else args.modelo):
-        cfg.escudo.usar_memoria = False  # igual que evaluar.py
+        cfg.escudo.usar_memoria = False
     env = MiloEnv(cfg, semilla=0)
     if args.modelo:
         from stable_baselines3 import PPO

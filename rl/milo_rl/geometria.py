@@ -13,17 +13,17 @@ import numpy as np
 
 @dataclass
 class Circulo:
-    c: np.ndarray  # centro (x, y)
+    c: np.ndarray
     r: float
-    z: tuple  # (z0, z1)
-    tipo: str = 'mueble'  # mueble | muro | persona | objeto
-    ident: int = -1  # para saber qué persona/objeto tocó un rayo
+    z: tuple
+    tipo: str = 'mueble'
+    ident: int = -1
 
 
 @dataclass
 class Caja:
     c: np.ndarray
-    half: tuple  # (hx, hy) medio largo y medio ancho
+    half: tuple
     yaw: float
     z: tuple
     tipo: str = 'mueble'
@@ -38,7 +38,7 @@ class Caja:
 
     def segmentos(self):
         e = self.esquinas()
-        return np.stack([e, np.roll(e, -1, axis=0)], axis=1)  # (4, 2, 2)
+        return np.stack([e, np.roll(e, -1, axis=0)], axis=1)
 
 
 @dataclass
@@ -59,18 +59,14 @@ def se_solapan_z(a, b):
     return a[0] <= b[1] and b[0] <= a[1]
 
 
-# ------------------------------------------------------------------------------------------------
-# Rayos (lidar)
-# ------------------------------------------------------------------------------------------------
 def rayos_segmentos(o, dirs, segs):
     """Distancia de cada rayo (o + t*dir) a cada segmento. dirs (N,2), segs (M,2,2) -> (N,M)."""
     if len(segs) == 0:
         return np.full((len(dirs), 0), np.inf)
-    a = segs[:, 0, :]  # (M,2)
-    e = segs[:, 1, :] - a  # (M,2)
-    w = a - o  # (M,2)
-    # o + t d = a + u e  ->  t d - u e = w ; resolver con producto cruz
-    den = dirs[:, 0:1] * (-e[None, :, 1]) - dirs[:, 1:2] * (-e[None, :, 0])  # (N,M) = d x (-e)
+    a = segs[:, 0, :]
+    e = segs[:, 1, :] - a
+    w = a - o
+    den = dirs[:, 0:1] * (-e[None, :, 1]) - dirs[:, 1:2] * (-e[None, :, 0])
     with np.errstate(divide='ignore', invalid='ignore'):
         t = (w[None, :, 0] * (-e[None, :, 1]) - w[None, :, 1] * (-e[None, :, 0])) / den
         u = (dirs[:, 0:1] * w[None, :, 1] - dirs[:, 1:2] * w[None, :, 0]) / den
@@ -82,14 +78,14 @@ def rayos_circulos(o, dirs, cs, rs):
     """Distancia de cada rayo a cada círculo. cs (K,2), rs (K,) -> (N,K)."""
     if len(cs) == 0:
         return np.full((len(dirs), 0), np.inf)
-    w = o - cs  # (K,2)
-    b = dirs @ w.T  # (N,K)  d·w
-    c = np.sum(w * w, axis=1) - rs ** 2  # (K,)
+    w = o - cs
+    b = dirs @ w.T
+    c = np.sum(w * w, axis=1) - rs ** 2
     disc = b * b - c[None, :]
     with np.errstate(invalid='ignore'):
         sq = np.sqrt(np.maximum(disc, 0.0))
     t1, t2 = -b - sq, -b + sq
-    t = np.where(t1 > 0, t1, np.where(t2 > 0, 0.0, np.inf))  # origen adentro -> 0
+    t = np.where(t1 > 0, t1, np.where(t2 > 0, 0.0, np.inf))
     return np.where(disc >= 0, t, np.inf)
 
 
@@ -146,9 +142,6 @@ def _capsula_caja(cap):
     return Caja((cap.p0 + cap.p1) / 2, (ln / 2, cap.r), yaw, cap.z, cap.tipo)
 
 
-# ------------------------------------------------------------------------------------------------
-# Distancias (para choques)
-# ------------------------------------------------------------------------------------------------
 def dist_punto_segmento(p, a, b):
     ab = b - a
     den = float(ab @ ab)

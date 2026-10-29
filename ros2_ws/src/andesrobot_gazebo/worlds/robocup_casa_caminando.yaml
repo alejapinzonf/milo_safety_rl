@@ -1,0 +1,32 @@
+# GENERADO por tools/poner_caminantes.py — NO editar a mano.
+# Personas que caminan de ida y vuelta por `ruta` (x, y en el mundo = frame map).
+caminante_comedor:
+  tipo: caminante
+  ruta:
+  - - 5.251
+    - -3.791
+  - - 3.978
+    - -5.064
+  vel: 0.8
+  pausa: 1.0
+  cruza: taza_comedor
+caminante_lavanderia:
+  tipo: caminante
+  ruta:
+  - - -2.598
+    - 2.81
+  - - -5.598
+    - 2.81
+  vel: 0.8
+  pausa: 1.0
+  cruza: botella_laundry
+caminante_librero:
+  tipo: caminante
+  ruta:
+  - - 3.31
+    - 1.75
+  - - 3.31
+    - 4.75
+  vel: 0.8
+  pausa: 1.0
+  cruza: botella_librero

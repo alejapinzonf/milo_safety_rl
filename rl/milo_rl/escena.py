@@ -28,15 +28,15 @@ from .humanos import Humano
 
 FALDON_Z = (0.15, 0.45)
 NIVELES_ESTANTE = (0.45, 0.85, 1.25, 1.62)
-OBJETOS = {  # alto, "radio" en planta (para que quepa), forma en planta
+OBJETOS = {
     'botella': dict(alto=0.22, r=0.033),
-    'taza': dict(alto=0.095, r=0.08),  # con el asa
+    'taza': dict(alto=0.095, r=0.08),
     'galletas': dict(alto=0.035, r=0.10),
 }
-RES = 0.1  # grilla del planificador [m]
-INFLADO = 0.32  # el planificador mantiene el centro del robot a esto de los muebles
-DIST_PRE = 0.6  # [m] del borde del mueble al frente del robot en el punto de pre-agarre
-GIRO_LIBRE = 0.30  # [m] extra sobre INFLADO para poder girar en el lugar (r_giro + holgura)
+RES = 0.1
+INFLADO = 0.32
+DIST_PRE = 0.6
+GIRO_LIBRE = 0.30
 
 
 @dataclass
@@ -45,12 +45,12 @@ class Escena:
     alto: float
     estaticas: list
     objeto: dict
-    aprox: dict  # n (mueble -> robot), borde (punto del borde frente al objeto), W (pre-agarre)
+    aprox: dict
     inicio: tuple
     salida: np.ndarray
     humanos: list = field(default_factory=list)
     tipo_personas: str = 'sin_personas'
-    grilla: np.ndarray = None  # True = libre para el centro del robot
+    grilla: np.ndarray = None
     dist_libre: np.ndarray = None
 
     def celda(self, p):
@@ -77,7 +77,6 @@ class Escena:
         return a_estrella(self, a, b)
 
 
-# ------------------------------------------------------------------------------------------------
 def generar(rng, esc):
     """Devuelve una Escena válida (reintenta hasta que todo calce)."""
     for _ in range(200):
@@ -97,17 +96,14 @@ def _intentar(rng, esc):
         return None
     formas_obj, objeto, aprox = r
     est += formas_obj
-    # sillas (solo mesas), sin tapar la línea de acercamiento
     if tipo in ('mesa', 'redonda') and rng.random() < 0.6:
         est += _sillas(rng, objeto['mueble_forma'], aprox, est)
-    # muebles extra
     for _ in range(rng.integers(esc.n_distractores[0], esc.n_distractores[1] + 1)):
         f = _distractor(rng, W, H, est, aprox, objeto)
         if f is not None:
             est += f
     e = Escena(W, H, est, objeto, aprox, None, None)
     _grilla(e)
-    # el punto de pre-agarre tiene que estar libre y alcanzable
     if not e.libre(aprox['W'], GIRO_LIBRE):
         return None
     inicio = _punto_libre(rng, e, cerca=aprox['W'], dist=(2.0, 4.5), margen=GIRO_LIBRE)
@@ -119,13 +115,11 @@ def _intentar(rng, esc):
         return None
     e.inicio = (inicio[0], inicio[1], rng.uniform(-math.pi, math.pi))
     e.salida = salida
-    # obstáculo no mapeado sobre la ruta de salida (solo en las pruebas de estrés)
     if esc.p_oculto > 0 and rng.random() < esc.p_oculto:
         f = _oculto(rng, e)
         if f is None:
             return None
         e.estaticas = e.estaticas + [f]
-    # personas
     u = rng.random()
     if u < esc.p_sin_personas:
         e.tipo_personas = 'sin_personas'
@@ -153,7 +147,7 @@ def _oculto(rng, e):
     cand = [p for p, si in zip(pts, s) if 0.9 <= si <= s[-1] - 1.0 and e.libre(p, 0.35)
             and np.hypot(*(p - e.objeto['pos'])) > 1.0
             and np.hypot(*(p - np.asarray(e.inicio[:2]))) > 1.2]
-    ida = e.planificar(np.asarray(e.inicio[:2]), e.aprox['W'])  # el robot no la toca antes de agarrar
+    ida = e.planificar(np.asarray(e.inicio[:2]), e.aprox['W'])
     ida = np.array(ida) if ida is not None else np.zeros((0, 2))
     cand = [p for p in cand if len(ida) == 0 or min(np.hypot(*(ida - p).T)) > 0.9]
     rng.shuffle(cand)
@@ -165,9 +159,6 @@ def _oculto(rng, e):
     return None
 
 
-# ------------------------------------------------------------------------------------------------
-# Muebles
-# ------------------------------------------------------------------------------------------------
 def _muros(W, H):
     t, z = 0.1, (0.0, 1.2)
     return [Caja(np.array([W / 2, -t / 2]), (W / 2 + t, t / 2), 0.0, z, 'muro'),
@@ -179,13 +170,13 @@ def _muros(W, H):
 def _contra_muro(rng, W, H, largo, fondo):
     """Centro, yaw y normal hacia adentro de un mueble apoyado en un muro al azar."""
     m = rng.integers(4)
-    if m == 0:  # abajo
+    if m == 0:
         x = rng.uniform(largo / 2 + 0.2, W - largo / 2 - 0.2)
         return np.array([x, fondo / 2]), 0.0, np.array([0.0, 1.0])
-    if m == 1:  # arriba
+    if m == 1:
         x = rng.uniform(largo / 2 + 0.2, W - largo / 2 - 0.2)
         return np.array([x, H - fondo / 2]), 0.0, np.array([0.0, -1.0])
-    if m == 2:  # izquierda
+    if m == 2:
         y = rng.uniform(largo / 2 + 0.2, H - largo / 2 - 0.2)
         return np.array([fondo / 2, y]), math.pi / 2, np.array([1.0, 0.0])
     y = rng.uniform(largo / 2 + 0.2, H - largo / 2 - 0.2)
@@ -220,7 +211,6 @@ def _mesa(rng, esc, W, H):
     tipo, ob, facil = _elegir_objeto(rng, esc)
     zc = h + ob['alto'] / 2
     banda, lim_nom, lim_piso = _banda(zc, facil)
-    # bordes accesibles: normales hacia afuera que no dan contra el muro
     cy, sy = math.cos(yaw), math.sin(yaw)
     ex_, ey_ = np.array([cy, sy]), np.array([-sy, cy])
     bordes = [(ex_, L / 2, D / 2), (-ex_, L / 2, D / 2), (ey_, D / 2, L / 2), (-ey_, D / 2, L / 2)]
@@ -233,7 +223,6 @@ def _mesa(rng, esc, W, H):
             continue
         lat = rng.uniform(-(semi_lat - ob['r'] - 0.05), semi_lat - ob['r'] - 0.05)
         pos = c + n * (semi - p) + t * lat
-        # profundidad efectiva = distancia al borde accesible más cercano
         prof = [(semi_b - float((pos - c) @ nb), nb) for nb, semi_b, _ in bordes]
         pe, nbest = min(prof, key=lambda x: x[0])
         if banda[0] <= pe <= banda[1]:
@@ -300,7 +289,6 @@ def _suelo(rng, esc, W, H):
     lat = rng.uniform(-(L / 2 - 0.2), L / 2 - 0.2)
     pos = c + n * (D / 2 + sep) + t * lat
     o = _obj(tipo, ob, pos, 0.0, None, None, None, 'suelo', None)
-    # el objeto en el suelo es un obstáculo físico (la base lo puede botar) que el lidar no ve
     o['forma'] = Circulo(pos.copy(), min(ob['r'], 0.06), (0.0, ob['alto']), 'objeto')
     borde = pos + n * min(ob['r'], 0.06)
     return [mueble, o['forma']], o, _aprox(borde, n)
@@ -315,7 +303,7 @@ def _obj(tipo, ob, pos, z_base, prof, lim_nom, lim_piso, donde, mueble_forma):
 
 def _aprox(borde, n):
     n = np.asarray(n, float) / np.hypot(*n)
-    W = borde + n * (DIST_PRE + C.FP_X_MAX)  # pre-agarre: el frente del robot a DIST_PRE
+    W = borde + n * (DIST_PRE + C.FP_X_MAX)
     return dict(n=n, borde=np.asarray(borde, float), W=W)
 
 
@@ -346,7 +334,7 @@ def _sillas(rng, mesa, aprox, est):
             continue
         if _cerca_de_linea(p, aprox['borde'], aprox['W'], 0.75):
             continue
-        asiento = Caja(p, (lado / 2, lado / 2), yaw, (0.0, 0.45), 'mueble')  # con faldón
+        asiento = Caja(p, (lado / 2, lado / 2), yaw, (0.0, 0.45), 'mueble')
         if any(f.tipo == 'muro' and distancia(asiento, f) < 0.05 for f in est):
             continue
         u = np.array([math.cos(yaw), math.sin(yaw)])
@@ -375,14 +363,11 @@ def _distractor(rng, W, H, est, aprox, objeto):
         if any(distancia(f, g) < 0.9 for g in est if g.tipo != 'muro'):
             continue
         if any(g.tipo == 'muro' and 0.0 < distancia(f, g) < 0.85 for g in est):
-            continue  # o pegado al muro o con pasillo
+            continue
         return [f]
     return None
 
 
-# ------------------------------------------------------------------------------------------------
-# Grilla, puntos libres y A*
-# ------------------------------------------------------------------------------------------------
 def _grilla(e):
     nx, ny = int(math.ceil(e.ancho / RES)), int(math.ceil(e.alto / RES))
     xs, ys = (np.arange(nx) + 0.5) * RES, (np.arange(ny) + 0.5) * RES
@@ -426,12 +411,12 @@ def a_estrella(e, a, b, G=None):
     G = e.grilla if G is None else G
     if not G[g]:
         return None
-    if not G[s]:  # partir desde la celda libre más cercana
+    if not G[s]:
         ii, jj = np.nonzero(G)
         k = np.argmin((ii - s[0]) ** 2 + (jj - s[1]) ** 2)
         s = (int(ii[k]), int(jj[k]))
     ny, nx = G.shape
-    pena = np.clip(0.4 - e.dist_libre, 0, None) * 4  # preferir pasar lejos de los muebles
+    pena = np.clip(0.4 - e.dist_libre, 0, None) * 4
     abiertos = [(0.0, s)]
     costo = {s: 0.0}
     padre = {}
@@ -462,9 +447,6 @@ def a_estrella(e, a, b, G=None):
     return pts[::3] + [pts[-1]] if len(pts) > 3 else pts
 
 
-# ------------------------------------------------------------------------------------------------
-# Personas
-# ------------------------------------------------------------------------------------------------
 def _ok_persona(e, p, margen=0.25):
     ap = e.aprox
     if not e.libre(p, margen):
@@ -493,7 +475,7 @@ def _personas(rng, e, n, caminan, esc):
                     break
             else:
                 A = np.array([rng.uniform(0.5, e.ancho - 0.5), rng.uniform(0.5, e.alto - 0.5)])
-                if rng.random() < 0.5:  # que cruce la ruta del robot
+                if rng.random() < 0.5:
                     m = (np.asarray(e.inicio[:2]) + e.aprox['W'] + e.salida) / 3
                     B = 2 * m - A + rng.normal(0, 0.5, 2)
                 else:

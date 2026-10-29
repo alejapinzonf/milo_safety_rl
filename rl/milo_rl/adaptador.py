@@ -39,7 +39,7 @@ class Persona:
         self.pos = np.asarray(pos, float)
         self.vel = np.asarray(vel, float)
 
-    def formas(self):  # no se usa (los choques los mide Gazebo), pero MiloEnv lo pide en viz
+    def formas(self):
         return []
 
 
@@ -54,14 +54,13 @@ def objeto_desde_yaml(nombre, d):
 class Adaptador(MiloEnv):
     def __init__(self, objeto, personas=(), cfg=None, semilla=0, modo='ppo'):
         super().__init__(cfg or C.ConfigEntorno(), semilla=semilla)
-        self.modo = modo  # 'ppo' (la política decide) o el nombre de un baseline
+        self.modo = modo
         self.objeto = objeto
         self.personas = list(personas)
         self.esc = SimpleNamespace(objeto=objeto, humanos=self.personas, aprox={'W': np.zeros(2)},
                                    salida=np.zeros(2))
         self.reiniciar()
 
-    # ------------------------------------------------------------------------------------------
     def reiniciar(self):
         sig = self.cfg.escenario
         self.obj_est = self.objeto['pos'] + self.rng.normal(0, sig.sigma_objeto, 2)
@@ -100,7 +99,7 @@ class Adaptador(MiloEnv):
 
     def _obs(self):
         o = super()._obs()
-        o[-1] = (self.t - getattr(self, 't_ini', 0.0)) / self.cfg.t_max  # tiempo de la pierna
+        o[-1] = (self.t - getattr(self, 't_ini', 0.0)) / self.cfg.t_max
         return o
 
     @staticmethod
@@ -109,9 +108,6 @@ class Adaptador(MiloEnv):
                     t_personal=0.0, violaciones_iso=0, intrusiones_iso=0, intervenciones=0,
                     giros_bloqueados=0, recorrido=0.0, d_min_mueble=math.inf, choque=False)
 
-    # ------------------------------------------------------------------------------------------
-    # Sensores
-    # ------------------------------------------------------------------------------------------
     def alimentar(self, t, pose, v, w, angulos, rangos, rango_min=0.05, rango_max=12.0):
         """pose = (x, y, yaw) de base_footprint en el mapa; v, w medidas (odometría);
         angulos/rangos = scan en el frame de base_footprint, respecto del lidar (0 = adelante)."""
@@ -121,7 +117,6 @@ class Adaptador(MiloEnv):
         self.odom = self.pose.copy()
         self.v, self.w = float(v), float(w)
         self.m['recorrido'] += abs(self.v) * dt
-        # remuestreo a los N rayos del 2D (el más cercano de cada sector angular) y limpieza
         N = C.LIDAR_RAYOS
         ang = np.asarray(angulos, float)
         r = np.asarray(rangos, float)
@@ -133,7 +128,6 @@ class Adaptador(MiloEnv):
         o_loc = np.array([C.LIDAR_X, 0.0])
         pts = o_loc + dirs * d[:, None]
         hit = d < C.LIDAR_RANGO - 0.05
-        # lo que cae sobre el propio robot (la columna) no es un obstáculo
         propio = ((pts[:, 0] >= C.FP_X_MIN - 0.02) & (pts[:, 0] <= C.FP_X_MAX + 0.02)
                   & (np.abs(pts[:, 1]) <= C.FP_HW + 0.02))
         hit &= ~propio
@@ -142,7 +136,6 @@ class Adaptador(MiloEnv):
         self.tapado = np.zeros(N, bool)
         self.d_mem = np.full(N, C.LIDAR_RANGO)
         self.pts_obst = pts[hit]
-        # distancia mínima a muebles (para el reporte): de la huella a los puntos del lidar
         if len(self.pts_obst):
             x, y = self.pts_obst[:, 0], self.pts_obst[:, 1]
             dd = np.hypot(np.maximum(np.maximum(C.FP_X_MIN - x, 0), x - C.FP_X_MAX),
@@ -150,7 +143,6 @@ class Adaptador(MiloEnv):
             self.m['d_min_mueble'] = min(self.m['d_min_mueble'], float(dd.min()))
             if dd.min() < 0.01:
                 self.m['choque'] = True
-        # personas: la ve el detector solo si el lidar tiene un punto sobre ella
         vistos = set()
         for h in self.personas:
             p = a_local(self.pose, h.pos)
@@ -158,9 +150,6 @@ class Adaptador(MiloEnv):
                 vistos.add(h.id)
         self.det.actualizar(t, self.personas, vistos)
 
-    # ------------------------------------------------------------------------------------------
-    # Decisión
-    # ------------------------------------------------------------------------------------------
     def politica(self, pol=None):
         """Elige θ (cada 0.2 s). pol(obs) -> acción en [-1, 1]^5, o un baseline por nombre."""
         if self.modo == 'ppo':
@@ -183,7 +172,7 @@ class Adaptador(MiloEnv):
             return 0.0, float(np.clip(2.0 * err, -0.8, 0.8))
         if self.fase == 'acercar':
             if margen_alcance(p, self.objeto['z']) >= 0.0:
-                self.fase = 'brazo'  # llegó: el brazo (bloqueado en Gazebo) agarraría desde acá
+                self.fase = 'brazo'
                 self.alcanzado = True
                 return 0.0, 0.0
             err = math.atan2(p[1], p[0])
@@ -203,7 +192,6 @@ class Adaptador(MiloEnv):
         self.v_out = v
         self.m['intervenciones'] += int(self.info_f['intervino'])
         self.m['giros_bloqueados'] += int(self.info_f['giro_bloqueado'])
-        # costos de este paso (mismas fórmulas que en el 2D)
         rel = max(0.0, C.D_STOP_NOMINAL - (self.th.d_stop_f if self.v >= 0
                                            else self.th.d_stop_s)) / C.D_STOP_NOMINAL
         self.m['exposicion'] += abs(self.v) / C.V_MAX * rel * dt
@@ -220,7 +208,6 @@ class Adaptador(MiloEnv):
             C.DT = a
 
 
-# ----------------------------------------------------------------------------------------------
 class PoliticaNumpy:
     """El PPO sin torch: MLP 97 -> 128 -> 128 -> 5 con tanh (la media de la política)."""
 

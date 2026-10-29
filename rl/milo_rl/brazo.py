@@ -45,13 +45,12 @@ class Brazo:
 
     def reset(self):
         self.estado = 'guardado'
-        self.t = 0.0  # tiempo dentro del estado
-        self.objetivo = None  # (x, y) local y z del objeto al empezar a alcanzar
+        self.t = 0.0
+        self.objetivo = None
         self.tcp = np.array(C.GUARDADO_TCP, float)
         self.zr = (0.90, 1.30)
         self.con_objeto = False
 
-    # --- órdenes ------------------------------------------------------------------------------
     def alcanzar(self, p_local, z):
         self.estado, self.t = 'alcanzando', 0.0
         self.objetivo = (np.array(p_local, float), float(z))
@@ -62,7 +61,6 @@ class Brazo:
             return True
         return False
 
-    # --- tiempo -------------------------------------------------------------------------------
     def paso(self, dt):
         """Avanza el brazo. Devuelve un evento: 'agarro' cuando cierra la pinza, si no None."""
         self.t += dt
@@ -94,7 +92,6 @@ class Brazo:
                 self.estado, self.t = 'guardado', 0.0
         return ev
 
-    # --- geometría ----------------------------------------------------------------------------
     def capsula_local(self):
         return Capsula(np.array([C.HOMBRO_X, 0.0]), self.tcp.copy(), C.GROSOR_BRAZO, self.zr)
 
@@ -114,7 +111,7 @@ class Brazo:
         u = p1 - np.array([C.HOMBRO_X, 0.0])
         u = u / max(float(np.hypot(*u)), 1e-6)
         p0 = p1 - 0.15 * u
-        if p0[0] < C.LIDAR_X + 0.02:  # nunca encima del propio lidar
+        if p0[0] < C.LIDAR_X + 0.02:
             p0 = np.array([C.LIDAR_X + 0.02, p0[1]])
         return Capsula(a_mundo(pose, p0), a_mundo(pose, p1), C.GROSOR_BRAZO, (0.0, 2.0), 'brazo')
 

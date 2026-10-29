@@ -32,7 +32,7 @@ class CallbackLagrangiano(BaseCallback):
         self.actualizar = actualizar
         self.ruta_csv = ruta_csv
         self.eps_rollout = []
-        self.hist = deque(maxlen=ventana)  # últimos episodios (para el log)
+        self.hist = deque(maxlen=ventana)
 
     def _on_training_start(self):
         self.training_env.env_method('set_lambdas', *self.lam)

@@ -25,7 +25,7 @@ class Humano:
         self.puntos = [np.array(p, float) for p in puntos] if puntos else None
         self.v_nom = v
         self.pausa_max = pausa
-        self.k = 1  # índice del punto al que va
+        self.k = 1
         self.espera = 0.0
         self.t_bloq = 0.0
         self.vel = np.zeros(2)
@@ -60,8 +60,6 @@ class Humano:
         u = d / dist
         paso = min(self.v_nom * dt, dist)
         if bloqueado(self.pos + u * (paso + 0.45)):
-            # se queda quieta mientras el robot le tape el camino; si pasa más de 1.5 s, se da
-            # vuelta (como haría una persona), así no quedan los dos esperándose para siempre
             self.t_bloq += dt
             if self.t_bloq > 1.5:
                 self.k, self.t_bloq = 1 - self.k, 0.0
@@ -77,7 +75,7 @@ class Detector:
 
     def __init__(self, sigma, p_perder, rng):
         self.sigma, self.p_perder, self.rng = sigma, p_perder, rng
-        self.tracks = {}  # id -> dict(pos, vel, t, n)
+        self.tracks = {}
         self.movimiento_visto = False
 
     def actualizar(self, t, humanos, vistos):
@@ -99,8 +97,6 @@ class Detector:
                 vel = (tc[:, None] * (zs - zs.mean(axis=0))).sum(axis=0) / max((tc ** 2).sum(),
                                                                                1e-6)
                 tr['vel'] = np.clip(vel, -1.5, 1.5)
-                # la posición es la última medida (con su ruido, que cubre Z_d): suavizarla con la
-                # recta la atrasa justo cuando la persona da la vuelta
             else:
                 tr['vel'] = np.zeros(2)
 

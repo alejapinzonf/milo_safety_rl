@@ -120,6 +120,10 @@
     <publish_wheel_tf>false</publish_wheel_tf>
     <odometry_frame>odom</odometry_frame>
     <robot_base_frame>base_footprint</robot_base_frame>
+    <!-- Odometría = pose REAL del robot en el mundo de Gazebo (1), no la de las ruedas (0). Así
+         el frame odom coincide con el mundo y el mapa de la casa (hecho en esta misma sim) calza
+         con map->odom = identidad. Es explícito para no depender del valor por defecto. -->
+    <odometry_source>1</odometry_source>
   </plugin>
 </gazebo>
 

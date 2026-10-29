@@ -15,9 +15,12 @@ odometry_source = world), así que el frame "map" del SLAM queda igual al mundo 
 Por eso AMCL parte en la misma pose donde aparece Milo (x/y/yaw, los pasa ./sim.sh).
 """
 
+import math
+
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, EmitEvent, ExecuteProcess,
-                            IncludeLaunchDescription, RegisterEventHandler)
+                            IncludeLaunchDescription, OpaqueFunction, RegisterEventHandler,
+                            TimerAction)
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.events import Shutdown
@@ -33,7 +36,6 @@ def generate_launch_description():
     pkg_safety = FindPackageShare('andesrobot_safety')
     pkg_nav = FindPackageShare('andesrobot_navigation')
 
-    # 1) Gazebo + mundo + Milo
     sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_gazebo, 'launch', 'sim.launch.py'])
@@ -46,14 +48,12 @@ def generate_launch_description():
             'yaw': LaunchConfiguration('yaw'),
         }.items(),
     )
-    # 2) Solo el filtro del lidar (slam:=false: aquí localiza AMCL sobre el mapa guardado)
     scan_filter = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_slam, 'launch', 'mapping.launch.py'])
         ),
         launch_arguments={'use_sim_time': 'true', 'slam': 'false'}.items(),
     )
-    # 3) Filtro de seguridad en modo navegación (lee lo que sale de twist_mux)
     safety = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_safety, 'launch', 'safety.launch.py'])
@@ -64,14 +64,9 @@ def generate_launch_description():
             'cmd_vel_in': '/safety/cmd_vel_in',
             'cmd_vel_out': '/cmd_vel',
         }.items(),
-        # filtro:=rl lo reemplaza por el filtro + escudo del paper con el PPO (paso 3b)
         condition=IfCondition(
             PythonExpression(["'", LaunchConfiguration('filtro'), "' == 'safety'"])),
     )
-    # 3b) Validación del paper (E5): nodo con el filtro adaptativo + escudo + PPO, en vez del
-    # safety_filter. Lee lo mismo (/scan, /safety/cmd_vel_in) y publica en /cmd_vel. Además manda
-    # a Nav2 al pre-agarre de cada objeto y mide. Detalle: rl/LEEME_GAZEBO.md
-    # (rl/ está montado en el contenedor como /rl, ver docker/compose.yaml)
     rl = ExecuteProcess(
         cmd=['python3', '/rl/ros/nodo_rl.py', '--ros-args',
              '-p', 'use_sim_time:=true',
@@ -88,10 +83,8 @@ def generate_launch_description():
         condition=IfCondition(
             PythonExpression(["'", LaunchConfiguration('filtro'), "' == 'rl'"])),
     )
-    # Cuando el nodo termina su misión, se apaga todo el launch (así se puede encadenar corridas).
     rl_fin = RegisterEventHandler(
         OnProcessExit(target_action=rl, on_exit=[EmitEvent(event=Shutdown())]))
-    # 4) AMCL + Nav2 + twist_mux + marcadores de ubicaciones
     nav = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([pkg_nav, 'launch', 'navigation.launch.py'])
@@ -100,13 +93,22 @@ def generate_launch_description():
             'map': LaunchConfiguration('map'),
             'use_sim_time': 'true',
             'ubicaciones': LaunchConfiguration('ubicaciones'),
-            # AMCL parte donde aparece Milo (map = mundo en la sim)
             'x': LaunchConfiguration('x'),
             'y': LaunchConfiguration('y'),
             'yaw': LaunchConfiguration('yaw'),
+            'amcl_tf': PythonExpression(
+                ["'true' if '", LaunchConfiguration('localizacion'), "' == 'amcl' else 'false'"]),
         }.items(),
     )
-    # 5) RViz de navegación
+    mapa_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['--x', '0', '--y', '0', '--z', '0', '--yaw', '0', '--pitch', '0', '--roll', '0',
+                   '--frame-id', 'map', '--child-frame-id', 'odom'],
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(
+            PythonExpression(["'", LaunchConfiguration('localizacion'), "' == 'mundo'"])),
+    )
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -115,6 +117,23 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
         condition=IfCondition(LaunchConfiguration('rviz')),
     )
+
+    def _pose_inicial(context):
+        x = float(LaunchConfiguration('x').perform(context))
+        y = float(LaunchConfiguration('y').perform(context))
+        yaw = float(LaunchConfiguration('yaw').perform(context))
+        cov = [0.0] * 36
+        cov[0] = cov[7] = 0.1
+        cov[35] = 0.05
+        msg = ('{header: {frame_id: map}, pose: {pose: {position: {x: %f, y: %f, z: 0.0}, '
+               'orientation: {x: 0.0, y: 0.0, z: %f, w: %f}}, covariance: %s}}'
+               % (x, y, math.sin(yaw / 2), math.cos(yaw), str(cov)))
+        return [ExecuteProcess(
+            cmd=['ros2', 'topic', 'pub', '-t', '8', '-r', '1', '/initialpose',
+                 'geometry_msgs/msg/PoseWithCovarianceStamped', msg],
+            output='screen')]
+
+    pose_inicial = TimerAction(period=20.0, actions=[OpaqueFunction(function=_pose_inicial)])
 
     return LaunchDescription(
         [
@@ -130,26 +149,27 @@ def generate_launch_description():
                 'ubicaciones',
                 default_value='/ros2_ws/src/andesrobot_slam/maps/casa_lugares.yaml',
             ),
-            # Dónde aparece Milo en el mundo (y dónde parte AMCL). ./sim.sh nav pasa los de la casa.
             DeclareLaunchArgument('x', default_value='0.0'),
             DeclareLaunchArgument('y', default_value='0.0'),
             DeclareLaunchArgument('yaw', default_value='0.0'),
             DeclareLaunchArgument('gazebo_gui', default_value='true'),
-            # filtro: safety (el de siempre) | rl (filtro adaptativo + escudo + PPO, para el paper)
             DeclareLaunchArgument('filtro', default_value='safety'),
-            DeclareLaunchArgument('modo', default_value='ppo'),  # ppo | nominal | minimo | reglas
-            DeclareLaunchArgument('politica', default_value='ninguna'),  # .npz (solo modo ppo)
-            DeclareLaunchArgument('objetos', default_value='taza_comedor'),  # lista con comas
+            DeclareLaunchArgument('modo', default_value='ppo'),
+            DeclareLaunchArgument('politica', default_value='ninguna'),
+            DeclareLaunchArgument('objetos', default_value='taza_comedor'),
             DeclareLaunchArgument('repeticiones', default_value='1'),
             DeclareLaunchArgument('csv', default_value='ninguna'),
             DeclareLaunchArgument('personas_yaml', default_value='ninguna'),
             DeclareLaunchArgument('rviz', default_value='true'),
+            DeclareLaunchArgument('localizacion', default_value='mundo'),
             sim,
             scan_filter,
             safety,
             rl,
             rl_fin,
             nav,
+            mapa_odom,
             rviz,
+            pose_inicial,
         ]
     )

@@ -20,7 +20,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 import matplotlib
-matplotlib.use('Agg')  # dibujar a archivo, sin ventana
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import xacro  # noqa: E402
@@ -34,7 +34,6 @@ from andesrobot_arm.kinematics import (  # noqa: E402
 DESC = get_package_share_directory('andesrobot_description')
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'figuras'
 
-# Colores: brazo azul, pinza naranja, columna/lift gris oscuro, base gris claro.
 SURF, INK, MUTED = '#fcfcfb', '#2b2b29', '#6b6a63'
 C_ARM, C_GRIP, C_BASE, C_COL = '#2a78d6', '#eb6834', '#a9a8a0', '#7d7c74'
 SERIES = ['#2a78d6', '#eb6834', '#1baf7a']
@@ -90,7 +89,6 @@ def cylinder_tris(r, length, n=24):
     return np.array(tris)
 
 
-# Geometría visual de cada link: lista de (transformación visual, triángulos en metros).
 VISUALS = {}
 for link in ROOT.findall('link'):
     for vis in link.findall('visual'):
@@ -285,9 +283,6 @@ def fig_vistas(medidas):
         plt.close(fig)
 
 
-# Puntos de la cadena de 7 ejes: el origen de cada articulación (el punto del eje donde Fusion
-# puso el acoplamiento) y el TCP. Con q = 0 el origen de una articulación coincide con el frame
-# de su link hijo, así que basta con leer T[link hijo].
 CADENA = [('lift', 'lift_carriage_link_1'), ('joint_1', 'link_1_1'), ('joint_2', 'link_2_1'),
           ('joint_3', 'link_3_1'), ('joint_4', 'link_4_1'), ('joint_5', 'link_5_1'),
           ('joint_6', 'link_6_1'), ('TCP', 'gripper_tcp')]
@@ -306,12 +301,10 @@ def fig_cadena(medidas):
     carrera del lift y el desplazamiento total lift -> TCP. Derecha: detalle de cada tramo
     con ΔX, ΔZ y la distancia (con el brazo en 0 todos los ΔY son 0).
     """
-    # Carrera del lift: los límites de vertical_lift_joint en el URDF.
     limit = next(j for j in ROOT.findall('joint') if j.get('name') == LIFT_JOINT).find('limit')
     lift_min, lift_max = float(limit.get('lower')), float(limit.get('upper'))
     pts, T = cadena_pts(0.0)
     labels = [lab for lab, _ in CADENA]
-    # Eje de cada articulación en el mundo (q = 0), para la etiqueta.
     by_child = {j['child']: j for j in JOINTS}
     axes = {}
     for lab, link in CADENA[:-1]:
@@ -325,7 +318,6 @@ def fig_cadena(medidas):
     fig, (axl, axr) = plt.subplots(1, 2, figsize=(13.5, 9.2),
                                    gridspec_kw={'width_ratios': [1.0, 1.15]})
 
-    # ---- Izquierda: rango completo del lift ----
     polys, cols = ortho(T, 'xz')
     axl.add_collection(PolyCollection(polys, facecolors=np.clip(cols * 0.25 + 0.75, 0, 1),
                                       edgecolors='none'))
@@ -337,15 +329,12 @@ def fig_cadena(medidas):
         axl.plot(p[:, 0], p[:, 2], '-o', color=color, lw=1.4, ms=3.5, zorder=5,
                  label=f'lift {name} ({lift:+.1f} m)')
     lo_p, hi_p = ends[lift_min], ends[lift_max]
-    # Carrera del lift (se mide en el origen de vertical_lift_joint).
     dim(axl, (lo_p[0, 0], lo_p[0, 2]), (lo_p[0, 0], hi_p[0, 2]),
         f'carrera del lift {lift_max - lift_min:.3f} m', -0.13, vertical=True)
-    # Altura del TCP sobre el suelo en las 3 alturas del lift (cotas escalonadas a la derecha).
     for lift, off in ((lift_min, 0.30), (0.0, 0.40), (lift_max, 0.50)):
         p = ends[lift]
         dim(axl, (p[-1, 0], 0), (p[-1, 0], p[-1, 2]), f'TCP {p[-1, 2]:.3f} m', off,
             vertical=True)
-    # Desplazamiento total lift -> TCP (igual en cualquier altura del lift).
     tot = hi_p[-1] - hi_p[0]
     dim(axl, (hi_p[0, 0], hi_p[-1, 2]), (hi_p[-1, 0], hi_p[-1, 2]), f'ΔX {tot[0]:.3f}', 0.10)
     axl.plot([hi_p[0, 0], hi_p[0, 0]], [hi_p[0, 2], hi_p[-1, 2] + 0.12], color=MUTED, lw=0.5)
@@ -362,7 +351,6 @@ def fig_cadena(medidas):
     axl.legend(loc='upper left', bbox_to_anchor=(0.0, 0.88), fontsize=8.5, framealpha=0.95)
     style(axl, 'Cadena de 7 ejes en todo el rango del lift (brazo en 0)')
 
-    # ---- Derecha: cada tramo, lift en 0 ----
     axr.add_collection(PolyCollection(polys, facecolors=np.clip(cols * 0.2 + 0.8, 0, 1),
                                       edgecolors='none'))
     axr.plot(pts[:, 0], pts[:, 2], '-', color=INK, lw=1.6, zorder=5)
@@ -374,8 +362,6 @@ def fig_cadena(medidas):
             txt += f' (eje {axes[lab]})'
         axr.text(p[0] - 0.035, p[2], txt, fontsize=8.5, zorder=7, ha='right', va='center',
                  bbox=dict(fc=SURF, ec='none', alpha=0.85, pad=0.6))
-    # Etiquetas de los tramos en una columna a la derecha, en el mismo orden que su altura
-    # (así las líneas guía no se cruzan).
     x_txt = 0.52
     mids = (pts[:-1] + pts[1:]) / 2
     order = np.argsort(mids[:, 2])

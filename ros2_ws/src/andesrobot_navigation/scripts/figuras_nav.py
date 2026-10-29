@@ -32,7 +32,6 @@ SAFETY = os.path.join(SRC, 'andesrobot_safety', 'config', 'safety.yaml')
 SAFETY_NAV = os.path.join(SRC, 'andesrobot_safety', 'config', 'safety_nav.yaml')
 NAV2 = os.path.join(SRC, 'andesrobot_navigation', 'config', 'nav2_params.yaml')
 
-# Lugares que anotó Aleja el 11-oct-2026 (por si todavía no está el .yaml en el repo)
 LUGARES_RESPALDO = {
     'sofa': dict(x=-3.15, y=-4.03, yaw=-1.55),
     'dining_table': dict(x=1.572, y=-2.738, yaw=0.398),
@@ -106,7 +105,6 @@ def huella(ax, x, y, yaw, color, **kw):
     ax.add_patch(mp.Polygon(pts, closed=True, fill=False, ec=color, lw=1.3, **kw))
 
 
-# ------------------------------------------------------------------------------------------
 def fig_casa_lugares(g):
     locs, del_archivo = lugares()
     fig, ax = plt.subplots(figsize=(8.4, 7.6))
@@ -118,17 +116,14 @@ def fig_casa_lugares(g):
             dibujar_prim(ax, g, p, lidar_z=g.LIDAR_Z)
     h = g.L / 2
     ax.add_patch(mp.Rectangle((-h, -h), g.L, g.L, color='#f6ead2', zorder=-1, lw=0))
-    # nombres de las salas
-    q = g.L / 4  # centro de cada cuarto de la casa
+    q = g.L / 4
     for nombre, (x, y) in (('Laundry', (-q, q + 1.8)), ('Bedroom', (q + 0.9, q + 1.8)),
                            ('Living room', (-q, -0.75)), ('Kitchen', (q + 1.3, -0.75))):
         ax.text(x, y, nombre, ha='center', color='#9a7a50', fontsize=12, fontweight='bold',
                 alpha=0.85)
-    # partida
     sx, sy = g.to_world(*g.SPAWN_UV)
     huella(ax, sx, sy, 0.0, ROJO, ls='--')
     ax.text(sx, sy - 0.55, 'partida\nde Milo', color=ROJO, ha='center', va='top', fontsize=9)
-    # lugares anotados
     for n, d in locs.items():
         x, y, yaw = float(d['x']), float(d['y']), float(d.get('yaw', 0.0))
         huella(ax, x, y, yaw, AZUL, alpha=0.7)
@@ -158,7 +153,6 @@ def fig_huella_puertas():
     x0, x1, hw = sp['footprint_x_min'], sp['footprint_x_max'], sp['footprint_half_width']
     r = max(math.hypot(x, hw) for x in (x0, x1))
     fig, axs = plt.subplots(1, 3, figsize=(13, 4.6))
-    # (a) huella
     ax = axs[0]
     ax.add_patch(mp.Rectangle((x0, -hw), x1 - x0, 2 * hw, fc='#dbe6fb', ec=AZUL, lw=2))
     ax.add_patch(mp.Circle((0, 0), r, fill=False, ec=NARANJO, lw=2, ls='--'))
@@ -180,7 +174,6 @@ def fig_huella_puertas():
     ax.text(-0.78, -0.72, f'rojo: r + holgura de giro ({sp["rotation_clearance"]:.2f} m)'
             f' = {r + sp["rotation_clearance"]:.2f} m', fontsize=8, color=ROJO)
     ax.grid(alpha=0.25)
-    # (b) y (c) puertas
     for ax, ancho, titulo in ((axs[1], 0.90, '(b) Puerta real: 0.90 m'),
                               (axs[2], 1.40, '(c) Puerta de la sim: 1.40 m')):
         t = 0.15
@@ -258,7 +251,7 @@ def fig_inflacion():
     infl = gc['inflation_layer']
     k, R = infl['cost_scaling_factor'], infl['inflation_radius']
     pad = gc.get('footprint_padding', 0.0)
-    r_ins = 0.12 + pad  # distancia del eje de ruedas al borde más cercano (la cola)
+    r_ins = 0.12 + pad
     r_cir = math.hypot(0.44 + pad, 0.25 + pad)
     d = np.linspace(0, R + 0.1, 500)
     c = np.where(d <= 0.0, 254, np.where(d <= r_ins, 253, 252 * np.exp(-k * (d - r_ins))))
@@ -288,7 +281,7 @@ def fig_cuaternion():
     vistos = []
     for n, d in locs.items():
         y = math.atan2(math.sin(float(d['yaw'])), math.cos(float(d['yaw'])))
-        alto = 1.06 + 0.17 * sum(abs(y - v) < 0.45 for v in vistos)  # no encimar nombres
+        alto = 1.06 + 0.17 * sum(abs(y - v) < 0.45 for v in vistos)
         vistos.append(y)
         ax.plot([y, y], [math.sin(y / 2), math.cos(y / 2)], color=GRIS, lw=0.8)
         ax.plot(y, math.sin(y / 2), 'o', color=AZUL, ms=5)

@@ -24,7 +24,6 @@ def _adaptador_de(env, con_personas=False):
 
 def _alimentar(ad, env):
     ad.alimentar(env.t, env.pose, env.v, env.w, env._ang, env.rangos, rango_max=C.LIDAR_RANGO)
-    # lo que en Gazebo trae el ejecutivo / el nodo, no el sensor:
     ad.fase, ad.cmd, ad.accion_prev = env.fase, env.cmd, env.accion_prev
     ad.info_f, ad.th, ad.t = env.info_f, env.th, env.t
 
@@ -106,7 +105,6 @@ def test_mision_completa_reglas_y_ppo_dummy():
     filas = _correr_mision('reglas', 11)
     assert len(filas) == 1 and filas[0]['resultado'] == 'exito', filas
     assert filas[0]['margen_final'] >= -0.03 and filas[0]['choque'] == 0
-    # con una "política" fija a mitad de rango
     filas = _correr_mision('ppo', 12, pol=lambda o: np.zeros(5))
     assert filas[0]['resultado'] == 'exito', filas
     assert filas[0]['d_min_mueble'] > 0.0

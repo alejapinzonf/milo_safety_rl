@@ -49,8 +49,6 @@ def reglas_tarde(env):
 
 
 BASELINES = {'nominal': nominal, 'minimo': minimo, 'reglas': reglas}
-# Solo para la prueba de estrés (se evalúan si se piden con --solo). El sufijo _sin_memoria hace
-# que evaluar.py apague la memoria del escudo.
 EXTRA = {'reglas_ciego': reglas_ciego, 'reglas_ciego_sin_memoria': reglas_ciego,
          'reglas_tarde': reglas_tarde, 'reglas_tarde_sin_memoria': reglas_tarde}
 BASELINES.update(EXTRA)

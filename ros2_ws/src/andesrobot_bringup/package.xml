@@ -25,10 +25,6 @@
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
-  <!-- drivers de Milo físico: hoverboard_hardware_interface está en ros2_ws/src/drivers;
-       sllidar_ros2 se compila dentro de la imagen Docker (ver docker/Dockerfile) -->
-  <exec_depend>hoverboard_hardware_interface</exec_depend>
-  <exec_depend>sllidar_ros2</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

@@ -59,7 +59,6 @@ def fig_resultados(df):
                 d = df[(df.metodo == m) & (df.escenario == e)]
                 if d.empty:
                     continue
-                # media por semilla de modelo, y el IC sobre episodios
                 mu = d[col].mean()
                 lo, hi = ic95(d[col].values)
                 ax.bar(i + (j - len(metodos) / 2 + 0.5) * ancho, mu, ancho, color=colores[j],

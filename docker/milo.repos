@@ -8,7 +8,7 @@
 #
 # El Dockerfile hace "vcs import src < milo.repos" y compila todo en /opt/milo_drivers.
 # Para agregar un driver: sumar su entrada aquí y reconstruir la imagen (./sim.sh stop y
-# ./sim.sh, o ./robot.sh): milo_up usa --build y Docker solo rehace los pasos que cambiaron.
+# ./sim.sh): milo_up usa --build y Docker solo rehace los pasos que cambiaron.
 # Sin Docker se usa igual:  vcs import ros2_ws/src < docker/milo.repos
 # (los drivers propios, como el del hoverboard, NO van aquí: viven en ros2_ws/src/drivers/).
 repositories:

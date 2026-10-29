@@ -105,7 +105,6 @@ def main():
     os.makedirs(out, exist_ok=True)
     R = C.Recompensa()
 
-    # etapas a correr
     if args.especialista:
         etapas = [dict(nombre=f'especialista_{args.especialista}', pasos=2_750_000,
                        escenario=C.ESCENARIOS[args.especialista])]
@@ -124,7 +123,6 @@ def main():
                                for e in etapas]), fh, indent=1)
 
     modelo, lambdas = None, (0.1, 0.1)
-    # si se pide una etapa > 1, partir de la anterior
     i0 = C.CURRICULO.index(etapas[0]) if etapas[0] in C.CURRICULO else 0
     if i0 > 0:
         prev = C.CURRICULO[i0 - 1]['nombre']
@@ -162,7 +160,6 @@ def main():
         modelo = m
         envs.close()
         print(f'   listo en {(time.time() - t0) / 60:.1f} min -> {out}')
-    # el último modelo también como final.zip (es el que usa evaluar.py)
     modelo.save(os.path.join(out, 'final.zip'))
 
 

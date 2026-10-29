@@ -1,0 +1,8 @@
+modo,repeticion,objeto,resultado,t_total,t_nav,margen_final,exposicion,costo_soc,d_min_mueble,d_min_persona,choque,intervenciones,giros_bloqueados,violaciones_iso,intrusiones_iso,recorrido
+ppo,0,botella_laundry,exito,103.8,97.3,0.017,0.439,0.11,0.022,1.073,0,50,36,0,0,9.5
+ppo,0,taza_laundry,exito,14.9,8.2,-0.013,0.462,0.057,0.021,1.078,0,2,7,0,0,1.68
+ppo,0,galletas_laundry,falla_acercar,68.5,8.5,-0.033,1.083,0.026,0.033,1.089,0,2,1151,0,0,1.33
+ppo,0,taza_estante,exito,58.2,47.4,0.002,0.364,2.831,0.02,0.123,0,186,705,0,0,3.46
+ppo,0,botella_estante,exito,37.3,27.1,-0.027,0.298,2.937,0.02,0.126,0,132,309,0,0,1.52
+ppo,0,galletas_librero,exito,64.9,58.0,-0.009,0.287,6.328,0.02,0.086,0,215,354,0,0,13.06
+ppo,0,botella_librero,exito,15.5,8.8,0.037,0.507,0.053,0.102,1.061,0,0,8,0,0,1.73

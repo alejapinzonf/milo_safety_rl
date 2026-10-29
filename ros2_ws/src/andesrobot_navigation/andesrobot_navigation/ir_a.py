@@ -58,8 +58,6 @@ def ang_diff(a, b):
 class Runner:
     def __init__(self, nav, frame):
         self.nav, self.frame = nav, frame
-        # Nodo auxiliar para TF y odometría, con su propio hilo (BasicNavigator hace spin de su
-        # propio nodo por dentro; no se puede meter el mismo nodo en dos executors).
         self.aux = rclpy.create_node('ir_a_aux')
         self.last_odom = None
         self.odom_dist = 0.0
@@ -151,7 +149,7 @@ def main():
 
     if args.tour:
         base = [d for d in locs.values() if d.get('id') is not None]
-        if not base:  # archivo simple, sin ids del rulebook: visitar todos los lugares
+        if not base:
             base = list(locs.values())
         rng = random.Random(args.semilla)
         plan = []
@@ -168,8 +166,6 @@ def main():
 
     rclpy.init()
     nav = BasicNavigator(node_name='ir_a')
-    # No usamos waitUntilNav2Active() porque en Humble re-publica /initialpose en (0,0)
-    # y pisaría la pose inicial que ya tiene AMCL (x:= y:= yaw:= del launch).
     nav._waitForNodeToActivate('amcl')
     nav._waitForNodeToActivate('bt_navigator')
     runner = Runner(nav, frame)

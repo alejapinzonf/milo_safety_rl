@@ -1,6 +1,3 @@
-# Tests de la cinemática del brazo de Milo (kinematics.py), sin ROS corriendo.
-# Necesitan andesrobot_description instalado (lee su xacro):
-#   source install/setup.bash && cd src/andesrobot_arm && python3 -m pytest -q test
 import numpy as np
 import pytest
 
@@ -20,15 +17,12 @@ def arm_lift():
     return ArmKinematics.from_xacro(base=LIFT_BASE)
 
 
-# Todo en cero: el TCP queda en la suma de los offsets del URDF (link_6_1 en (-0.130577, 0,
-# 0.856077) desde arm_base_link_1) más 0.102 m hacia -X (gripper_tcp), sin rotación.
 def test_pose_cero_coincide_con_el_urdf(arm):
     tcp = arm.fk(np.zeros(arm.dof))
     np.testing.assert_allclose(tcp[:3, 3], [-0.232577, 0.0, 0.856077], atol=1e-9)
     np.testing.assert_allclose(tcp[:3, :3], np.eye(3), atol=1e-12)
 
 
-# La parte lineal del Jacobiano tiene que coincidir con derivar la FK numéricamente.
 def test_jacobiano_igual_a_diferencias_finitas(arm):
     q = np.random.default_rng(0).uniform(-np.pi, np.pi, arm.dof)
     h = 1e-6
@@ -40,7 +34,6 @@ def test_jacobiano_igual_a_diferencias_finitas(arm):
     np.testing.assert_allclose(arm.jacobian(q)[:3], numeric, atol=1e-8)
 
 
-# Poses alcanzables (FK de ángulos al azar): la IK tiene que volver a llegar a ellas.
 def test_ik_llega_a_poses_alcanzables(arm):
     rng = np.random.default_rng(1)
     for k in range(20):
@@ -50,8 +43,6 @@ def test_ik_llega_a_poses_alcanzables(arm):
         np.testing.assert_allclose(arm.fk(q), target, atol=1e-3)
 
 
-# Con el lift (7 articulaciones), poses alcanzables y un punto cerca del suelo, frente a
-# Milo, que el brazo solo no alcanza: hay que bajar el lift.
 def test_ik_con_lift(arm_lift):
     li = arm_lift.joint_names.index(LIFT_JOINT)
     weights = np.ones(arm_lift.dof)
@@ -79,7 +70,6 @@ def test_cuaternion_ida_y_vuelta():
                                    atol=1e-9)
 
 
-# La duración la pone la articulación más lenta, y nunca baja del mínimo.
 def test_duracion_de_trayectoria():
     assert trajectory_duration([0, 0], [0.1, -1.0], 0.5, 1.0) == 2.0
     assert trajectory_duration([0, 0], [0.1, 0.1], 0.5, 1.0) == 1.0

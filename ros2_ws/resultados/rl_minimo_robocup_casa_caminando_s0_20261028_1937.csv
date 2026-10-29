@@ -1,0 +1,11 @@
+modo,repeticion,objeto,resultado,t_total,t_nav,margen_final,exposicion,costo_soc,d_min_mueble,d_min_persona,choque,intervenciones,giros_bloqueados,violaciones_iso,intrusiones_iso,recorrido
+minimo,0,botella_laundry,exito,40.5,33.0,0.006,21.302,0.032,0.021,1.138,0,27,51,0,0,9.32
+minimo,0,taza_laundry,exito,25.4,8.1,0.012,4.01,0.099,0.022,1.051,0,1,175,0,0,1.77
+minimo,0,galletas_laundry,falla_acercar,69.0,8.9,-0.022,3.094,0.014,0.02,1.12,0,0,1112,0,0,1.35
+minimo,0,taza_estante,exito,63.1,52.0,0.016,7.944,2.733,0.02,0.156,0,192,785,0,0,3.48
+minimo,0,botella_estante,exito,37.2,27.6,-0.054,3.622,2.947,0.02,0.127,0,111,325,0,0,1.6
+minimo,0,galletas_librero,exito,94.8,87.1,0.002,38.178,9.272,0.02,0.061,0,534,675,0,0,16.68
+minimo,0,botella_librero,exito,17.7,9.6,0.016,3.902,0.031,0.121,1.075,0,9,11,0,0,1.72
+minimo,0,taza_comedor,falla_acercar,95.7,35.6,0.012,17.547,0.888,0.025,0.666,0,141,1276,0,0,7.66
+minimo,0,botella_comedor,exito,88.7,76.3,-0.01,3.866,1.532,0.021,0.668,0,151,1224,0,0,1.71
+minimo,0,galletas_comedor,exito,25.2,12.9,-0.01,3.446,1.004,0.02,0.722,0,112,133,0,0,1.52

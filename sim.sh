@@ -111,7 +111,8 @@ fi
 if [ "$1" = "rl" ]; then
   OBJ="${4:-taza_comedor}"; REP="${5:-1}"; MUN="${6:-robocup_casa}"; SEM="${7:-0}"
   PERS="ninguna"
-  [ "$MUN" = "robocup_casa_personas" ] && PERS="/ros2_ws/src/andesrobot_gazebo/worlds/robocup_casa_personas.yaml"
+  case "$MUN" in robocup_casa_personas|robocup_casa_caminando)
+    PERS="/ros2_ws/src/andesrobot_gazebo/worlds/$MUN.yaml" ;; esac
   POL="/rl/politicas/politica_s$SEM.npz"
   [ "$3" = "ppo" ] || POL="ninguna"
   CSV="/ros2_ws/resultados/rl_$3_${MUN}_s${SEM}_$(date +%Y%m%d_%H%M).csv"

@@ -18,7 +18,6 @@ class Marcadores(Node):
         self.declare_parameter('ubicaciones', '')
         path = self.get_parameter('ubicaciones').value or None
         self.frame, self.locs = U.load(path)
-        # transient_local = "latched": RViz recibe los marcadores aunque se abra después.
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.pub = self.create_publisher(MarkerArray, 'nav/ubicaciones', qos)
         self.publish()

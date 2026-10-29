@@ -1,4 +1,3 @@
-# setup.py del paquete de navegación (mismo formato que andesrobot_slam).
 import os
 from glob import glob
 
@@ -24,9 +23,7 @@ setup(
     description='Navegación autónoma (Nav2) para AndesRobot / Milo.',
     license='Apache-2.0',
     entry_points={'console_scripts': [
-        # ros2 run andesrobot_navigation ir_a kitchen
         'ir_a = andesrobot_navigation.ir_a:main',
-        # publica las ubicaciones como marcadores en RViz
         'marcadores = andesrobot_navigation.marcadores:main',
     ]},
 )

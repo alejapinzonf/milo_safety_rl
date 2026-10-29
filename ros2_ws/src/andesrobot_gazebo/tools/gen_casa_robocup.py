@@ -38,68 +38,39 @@ PKG_GAZEBO = os.path.dirname(HERE)
 SRC = os.path.dirname(PKG_GAZEBO)
 OUT_WORLD = os.path.join(PKG_GAZEBO, 'worlds', 'robocup_casa.world')
 OUT_PNG = os.path.join(PKG_GAZEBO, 'worlds', 'robocup_casa.png')
-# Dónde quedó cada objeto (la "verdad" del simulador; hace de módulo de percepción)
 OUT_OBJ = os.path.join(PKG_GAZEBO, 'worlds', 'robocup_casa_objetos.yaml')
-# Lugares que anotaste a mano (tf2_echo): el script revisa que sigan libres con las mesas nuevas
 LUGARES = os.path.join(SRC, 'andesrobot_slam', 'maps', 'casa_lugares.yaml')
 
-# ------------------------------------------------------------------------------------------
-# Parámetros generales
-# ------------------------------------------------------------------------------------------
-# ESCALA agranda la casa (distancias entre muros y muebles) pero NO los muebles ni el grosor de
-# los muros: una cama sigue midiendo 2 m. Todas las medidas de más abajo son las del PLANO del
-# rulebook (escala 1, casa de 9 x 9 m); escalar() las convierte al final de esta sección.
-# Con 1.4 la casa queda de 12.6 x 12.6 m: Milo pasa con holgura y puede girar entre los muebles.
 ESCALA = 1.4
-L = 9.0  # la casa es de L x L m (medida exterior, en el plano)
-T = 0.15  # grosor de muro
-WALL_H = 1.2  # alto de muro (el lidar escanea a ~0.36 m)
-# Ancho de puerta. Con 1.40 Milo puede GIRAR dentro de la puerta: el filtro de seguridad (modo
-# teleop) bloquea el giro si hay algo a menos de 0.51 (radio de giro) + 0.15 = 0.66 m del centro,
-# y en una puerta de 1.40 los marcos quedan a 0.70 m. Una puerta real de casa mide ~0.90.
+L = 9.0
+T = 0.15
+WALL_H = 1.2
 DOOR = 1.40
-SPAWN_UV = (-0.9, 3.17)  # punto de partida (afuera de la puerta del living), en coordenadas casa
-# Altura del plano que barre el lidar (base_footprint -> frame "laser" del URDF). OJO: 0.333 m es
-# la TAPA del chasis, no el lidar; el lidar va encima y barre a 0.363 m.
+SPAWN_UV = (-0.9, 3.17)
 LIDAR_Z = 0.363
-# FALDONES: "cartón" alrededor de mesas y sillas a la altura del lidar. Sin faldón el lidar (que
-# barre a 0.36 m) ve solo las PATAS; con faldón ve el contorno completo de la cubierta, así el
-# mapa sale con la mesa sólida, Nav2 no planea por debajo y el filtro de seguridad mide la
-# distancia al BORDE de la mesa. En el robot real (RoboCup no deja tocar los muebles) el
-# equivalente es dibujar el contorno en el mapa (zonas prohibidas de Nav2).
 FALDONES = True
-FALDON_Z = (0.15, 0.45)  # [m] desde dónde hasta dónde llega el faldón (cubre la altura del lidar)
-APPROACH = 0.80  # distancia base_footprint -> cara del mueble en las poses objetivo
-# (la punta de Milo está 0.44 m adelante => queda a ~0.36 m: más que el
-#  stop_distance 0.30 del filtro de seguridad)
-# Footprint de Milo en base_footprint (igual que safety.yaml / nav2_params.yaml)
+FALDON_Z = (0.15, 0.45)
+APPROACH = 0.80
 FP = [(0.44, 0.25), (0.44, -0.25), (-0.12, -0.25), (-0.12, 0.25)]
-# Girar en el lugar en la pose objetivo: el filtro (modo Nav2, safety_nav.yaml) lo bloquea si el
-# lidar ve algo a menos de radio_de_giro + rotation_clearance.
 TURN_R = math.hypot(0.44, 0.25) + 0.08
 
-# Muros internos: centros
-XV = 4.475  # muro vertical del medio (separa izquierda / derecha)
-YH = 5.155  # muro horizontal del medio (separa arriba / abajo)
+XV = 4.475
+YH = 5.155
 
 
 def to_world(u, v):
-    # El centro de la casa es el (0, 0) del mundo de Gazebo.
     return (round(u - L / 2, 3), round(v - L / 2, 3))
 
 
-# ------------------------------------------------------------------------------------------
-# Muros con puertas: (eje, coordenada fija, desde, hasta, [centros de puertas])
-# ------------------------------------------------------------------------------------------
 WALL_LINES = [
-    ('h', T / 2, 0.0, L, []),  # abajo
-    ('h', L - T / 2, 0.0, L, []),  # arriba
-    ('v', L - T / 2, T, L - T, []),  # derecha
-    ('v', T / 2, T, L - T, [3.17, 7.50]),  # izquierda: puertas al living y al laundry
-    ('v', XV, T, L - T, [2.73, 8.06]),  # medio: living<->kitchen, laundry<->bedroom
-    ('h', YH, T, L - T, [3.02, 7.75]),  # medio: laundry<->living, bedroom<->kitchen
+    ('h', T / 2, 0.0, L, []),
+    ('h', L - T / 2, 0.0, L, []),
+    ('v', L - T / 2, T, L - T, []),
+    ('v', T / 2, T, L - T, [3.17, 7.50]),
+    ('v', XV, T, L - T, [2.73, 8.06]),
+    ('h', YH, T, L - T, [3.02, 7.75]),
 ]
-DOORS = {  # nombre de cada puerta (centro en coordenadas casa) -> para el .yaml y el paper
+DOORS = {
     'puerta_entrada_living': (T / 2, 3.17),
     'puerta_salida_laundry': (T / 2, 7.50),
     'puerta_living_kitchen': (XV, 2.73),
@@ -108,25 +79,9 @@ DOORS = {  # nombre de cada puerta (centro en coordenadas casa) -> para el .yaml
     'puerta_bedroom_kitchen': (7.75, YH),
 }
 
-# ------------------------------------------------------------------------------------------
-# Muebles. tipo: box (sólido hasta el suelo), table (cubierta + 4 patas), cyl (cilindro sólido),
-# round (mesa redonda con 4 patas), chair (asiento + patas + respaldo, mirando a "yaw"),
-# estante (mueble cerrado abajo + repisas abiertas arriba, con el frente hacia "frente").
-# Campos: nombre, tipo, (u, v), tamaño, alto, color, [extra]
-#   box/table/estante: tamaño = (largo_u, ancho_v); cyl/round: tamaño = radio; chair: lado
-#   extra: chair -> yaw; estante -> frente (du, dv) = hacia dónde mira el lado abierto
-# ------------------------------------------------------------------------------------------
-# Mesa del comedor: en el plano está en (6.69, 2.79); la subimos a 3.05 y la basurera de la cocina
-# de 3.30 a 2.10 para que Milo (radio de giro 0.51 m) pueda girar frente a la cocina y la basurera.
 DINNER = (6.69, 3.05)
-# MESAS GRANDES (para el paper): tienen que ser más hondas que lo que alcanza el brazo (ver
-# ALCANCE más abajo) para que haya objetos "difíciles" y otros que no se alcanzan desde ese lado.
-DINNER_R = 0.75  # radio de la mesa redonda del comedor (antes 0.60)
-CHAIR_D = 0.72  # centro de la mesa -> centro de cada silla (metidas bajo la cubierta)
-# ESTANTE: abajo un mueble CERRADO hasta la primera repisa (el lidar ve su frente, como un
-# mueble real con puertas abajo) y arriba repisas abiertas con fondo y costados. Las alturas son
-# las de la SUPERFICIE de cada repisa; la más alta (1.62 m) está casi a la altura máxima del hombro
-# del brazo (1.61 m), así que se alcanza con el brazo horizontal.
+DINNER_R = 0.75
+CHAIR_D = 0.72
 ESTANTE_NIVELES = (0.45, 0.85, 1.25, 1.62)
 WOOD = '0.45 0.30 0.18'
 DARK = '0.25 0.22 0.20'
@@ -135,26 +90,19 @@ GREY = '0.55 0.55 0.58'
 GREEN = '0.20 0.50 0.20'
 SOFA = '0.80 0.80 0.80'
 FURN = [
-    # Laundry
-    # mesa grande (antes 1.40 x 0.70), sigue pegada al muro de arriba (cara a 8.85)
     ('laundry_table', 'table', (1.43, 8.40), (1.60, 0.90), 0.75, DARK),
     ('washing_machine', 'box', (2.85, 8.55), (0.60, 0.60), 0.85, WHITE),
-    # estante con repisas (antes una caja), pegado al muro del medio, abierto hacia +v
     ('shelf', 'estante', (1.00, 5.43), (1.20, 0.40), 2.00, WHITE, (0, 1)),
     ('laundry_trash_bin', 'cyl', (2.02, 5.45), 0.17, 0.60, GREY),
-    # Bedroom
     ('bed', 'box', (5.55, 5.73), (2.00, 1.00), 0.50, WHITE),
     ('bedside_table', 'box', (5.15, 6.55), (0.50, 0.45), 0.55, DARK),
     ('coat_rack', 'cyl', (8.55, 8.50), 0.20, 1.70, WOOD),
-    # librero nuevo (no está en el rulebook), pegado al muro derecho, abierto hacia -u
     ('bookshelf', 'estante', (8.65, 7.00), (0.40, 1.00), 2.00, WOOD, (-1, 0)),
     ('planta_bedroom', 'cyl', (8.55, 5.50), 0.15, 0.70, GREEN),
-    # Living room
     ('tv_stand', 'box', (1.42, 4.88), (1.30, 0.40), 0.50, WOOD),
     ('sofa', 'box', (2.25, 0.60), (2.10, 0.90), 0.80, SOFA),
     ('coffee_table', 'table', (3.95, 0.42), (0.60, 0.45), 0.45, DARK),
     ('planta_living', 'cyl', (0.60, 0.65), 0.15, 0.70, GREEN),
-    # Kitchen
     ('cabinet', 'box', (4.75, 4.25), (0.40, 1.20), 0.90, WHITE),
     ('refrigerator', 'box', (8.525, 4.25), (0.65, 0.80), 1.80, GREY),
     ('kitchen_trash_bin', 'cyl', (8.55, 2.10), 0.18, 0.60, GREY),
@@ -169,12 +117,6 @@ FURN = [
     ('dishwasher', 'box', (7.60, 0.45), (0.60, 0.60), 0.85, WHITE),
 ]
 
-# ------------------------------------------------------------------------------------------
-# Ubicaciones con nombre (las del rulebook) -> desde qué lado se acerca Milo.
-# (id_rulebook, mueble, dirección desde el mueble hacia Milo (du, dv), sala,
-#  se_pueden_dejar_objetos
-#  [, corrimiento lateral en m a lo largo de la cara, para alejarse de un muro y poder girar])
-# ------------------------------------------------------------------------------------------
 S2 = math.sqrt(0.5)
 LOCATIONS = [
     (1, 'laundry_table', (0, -1), 'laundry', True),
@@ -183,7 +125,7 @@ LOCATIONS = [
     (4, 'laundry_trash_bin', (0, 1), 'laundry', False),
     (5, 'bed', (1, 0), 'bedroom', True, 0.12),
     (17, 'bedside_table', (0, 1), 'bedroom', True),
-    (19, 'bookshelf', (-1, 0), 'bedroom', True),  # 19: no es del rulebook (librero agregado)
+    (19, 'bookshelf', (-1, 0), 'bedroom', True),
     (18, 'coat_rack', (-S2, -S2), 'bedroom', False),
     (6, 'tv_stand', (0, -1), 'living_room', True),
     (7, 'sofa', (0, 1), 'living_room', True),
@@ -197,7 +139,6 @@ LOCATIONS = [
     (15, 'kitchen_trash_bin', (-1, 0), 'kitchen', False),
     (16, 'dinner_table', (S2, -S2), 'kitchen', True),
 ]
-# Centros de sala + entrada/salida (u, v, yaw_mundo)
 ROOMS = {
     'laundry': (2.30, 7.00, 0.0),
     'bedroom': (6.90, 7.30, 0.0),
@@ -207,77 +148,34 @@ ROOMS = {
     'salida': (-0.9, 7.50, math.pi),
 }
 
-# ------------------------------------------------------------------------------------------
-# Objetos para agarrar (paper: filtro de seguridad adaptativo).
-#
-# ALCANCE: hasta dónde llega la pinza al frente, medido desde base_footprint. Con el lift libre el
-# hombro se pone a la altura del objeto y el brazo estira su radio completo: 0.1225 (eje de
-# joint_1) + 0.848 = 0.97 m (informe del brazo, tabla de espacio de trabajo). Vale para objetos
-# entre ~0.6 y ~1.9 m de alto (el hombro sube de 0.61 a 1.61 m). OJO: la tabla "a 0.75 m de alto:
-# 0.89 m" del informe sale de un muestreo aleatorio que subestima el máximo; no usarla.
-# Es un máximo geométrico (brazo estirado, sin choques): agarrar en serio pide unos cm menos.
-# Con la punta de Milo en x = 0.44, la PROFUNDIDAD (cuánto adentro del mueble está el centro del
-# objeto) decide:
-#   profundidad <= LIM_NOMINAL (0.23)  se alcanza con el filtro nominal (para a 0.30 m del borde)
-#   <= LIM_PISO (0.48)                 solo relajando el filtro hasta el piso duro (0.05 m)
-#   más                                no se alcanza
-# La profundidad que cuenta es la EFECTIVA: desde el borde MÁS CERCANO al que Milo podría llegar,
-# no solo desde el lado de LOCATIONS. Si no, Milo "hace trampa" dándole la vuelta a la mesa.
-#   mesa rectangular: el borde más cercano de los 4 (también el pegado al muro: así es
-#                     conservador, nunca dice "difícil" a algo que es fácil desde otro lado)
-#   mesa redonda:     radio - distancia del objeto al centro
-#   estante:          solo el frente (los lados y el fondo son tablas)
-# Todos los objetos de mesas y estantes van en la franja del medio, con 3 cm de margen.
 ALCANCE, PUNTA, D_NOMINAL, D_PISO = 0.97, 0.44, 0.30, 0.05
-LIM_NOMINAL = ALCANCE - PUNTA - D_NOMINAL  # 0.23 m
-LIM_PISO = ALCANCE - PUNTA - D_PISO  # 0.48 m
+LIM_NOMINAL = ALCANCE - PUNTA - D_NOMINAL
+LIM_PISO = ALCANCE - PUNTA - D_PISO
 MARGEN = 0.03
-DIST_PRE = 0.6  # [m] del borde del mueble a la punta del robot en el pre-agarre (igual que rl/)
-#
-# Cada objeto se ubica respecto a la cara por donde se acerca Milo (la de LOCATIONS):
-#   prof    = cuánto adentro del mueble, desde esa cara, en la dirección en que llega Milo
-#   lateral = corrimiento a lo largo de la cara (+ = a la izquierda de Milo mirando el mueble)
-#   yaw     = giro propio del objeto respecto a hacia dónde mira Milo (0 = su eje x apunta
-#             hacia adentro del mueble)
-#   nivel   = altura de la superficie donde va (None = encima de la mesa; en un estante, una
-#             de ESTANTE_NIVELES)
-# Campos: nombre, modelo, mueble, prof, lateral, yaw, nivel
-# ------------------------------------------------------------------------------------------
+DIST_PRE = 0.6
 OBJETOS = [
-    # mesa de la lavandería (1.60 x 0.90, pegada al muro)
     ('botella_laundry', 'botella', 'laundry_table', 0.30, 0.40, 0.0, None),
     ('taza_laundry', 'taza', 'laundry_table', 0.38, 0.00, 2.4, None),
     ('galletas_laundry', 'galletas', 'laundry_table', 0.42, -0.42, 0.3, None),
-    # mesa redonda del comedor (radio 0.75)
     ('taza_comedor', 'taza', 'dinner_table', 0.40, 0.00, -0.8, None),
     ('botella_comedor', 'botella', 'dinner_table', 0.32, 0.12, 0.0, None),
     ('galletas_comedor', 'galletas', 'dinner_table', 0.36, -0.15, 1.2, None),
-    # estante de la lavandería y librero del dormitorio: objetos ALTOS (hasta 1.62 m)
     ('taza_estante', 'taza', 'shelf', 0.29, 0.25, 0.0, 1.25),
     ('botella_estante', 'botella', 'shelf', 0.32, -0.30, 0.0, 1.62),
     ('galletas_librero', 'galletas', 'bookshelf', 0.30, 0.20, math.pi / 2, 1.62),
     ('botella_librero', 'botella', 'bookshelf', 0.32, -0.25, 0.0, 0.85),
 ]
-# Objetos en el SUELO, al lado de un mueble (afuera de él). Quedan por DEBAJO del plano del lidar
-# (miden menos de 0.36 m): el lidar no los ve. Para agarrarlos el brazo tiene que bajar delante
-# del robot y TAPA el lidar: es el caso del punto ciego del brazo del paper.
-#   sep = distancia desde la cara del mueble (la de LOCATIONS) hasta el centro del objeto
-# Campos: nombre, modelo, mueble, sep, lateral, yaw
 OBJETOS_SUELO = [
     ('botella_suelo', 'botella', 'sofa', 0.20, 0.75, 0.0),
     ('taza_suelo', 'taza', 'tv_stand', 0.20, 0.50, 1.0),
 ]
 
 
-# ------------------------------------------------------------------------------------------
-# Escalar el plano. Los muebles pegados a un muro (a menos de 13 cm) se quedan pegados a ese
-# muro; los demás se mueven proporcionalmente. Los tamaños no cambian.
-# ------------------------------------------------------------------------------------------
 def escalar(e):
     global L, XV, YH, SPAWN_UV, DINNER, WALL_LINES, DOORS, FURN, ROOMS
     if e == 1.0:
         return
-    caras = [T, XV - T / 2, XV + T / 2, L - T]  # mismas caras de muro en u y en v (ver abajo)
+    caras = [T, XV - T / 2, XV + T / 2, L - T]
     caras_v = [T, YH - T / 2, YH + T / 2, L - T]
     nL, nXV, nYH = L * e, XV * e, YH * e
     nuevas_u = [T, nXV - T / 2, nXV + T / 2, nL - T]
@@ -285,9 +183,9 @@ def escalar(e):
 
     def eje(c, h, viejas, nuevas):
         for f, nf in zip(viejas, nuevas):
-            if abs((c - h) - f) <= 0.13:  # cara de abajo/izquierda pegada a este muro
+            if abs((c - h) - f) <= 0.13:
                 return nf + ((c - h) - f) + h
-            if abs(f - (c + h)) <= 0.13:  # cara de arriba/derecha pegada a este muro
+            if abs(f - (c + h)) <= 0.13:
                 return nf - (f - (c + h)) - h
         return c * e
 
@@ -295,7 +193,7 @@ def escalar(e):
     for f in FURN:
         name, kind, (u, v), size = f[:4]
         if kind == 'chair':
-            continue  # las sillas se rehacen alrededor de la mesa
+            continue
         hu, hv = (size, size) if kind in ('cyl', 'round') else (size[0] / 2, size[1] / 2)
         if kind == 'round':
             nu, nv = u * e, v * e
@@ -303,7 +201,7 @@ def escalar(e):
             nu, nv = eje(u, hu, caras, nuevas_u), eje(v, hv, caras_v, nuevas_v)
         nfurn.append((name, kind, (round(nu, 3), round(nv, 3))) + tuple(f[3:]))
     DINNER = next(f[2] for f in nfurn if f[0] == 'dinner_table')
-    dc = next(f for f in FURN if f[0] == 'silla_n')[3:6]  # lado, alto, color
+    dc = next(f for f in FURN if f[0] == 'silla_n')[3:6]
     for name, du, dv, yaw in (('silla_n', 0, 1, -math.pi / 2), ('silla_s', 0, -1, math.pi / 2),
                               ('silla_o', -1, 0, 0.0), ('silla_e', 1, 0, math.pi)):
         pos = (DINNER[0] + du * CHAIR_D, DINNER[1] + dv * CHAIR_D)
@@ -328,11 +226,6 @@ def escalar(e):
 
 
 escalar(ESCALA)
-
-# ------------------------------------------------------------------------------------------
-# Geometría -> lista de primitivas (para SDF y para el raster de verificación)
-# prim = dict(kind='box'|'cyl', c=(u,v,z), size=(sx,sy,sz) | r,h, yaw, color)
-# ------------------------------------------------------------------------------------------
 
 
 def wall_prims():
@@ -390,31 +283,29 @@ def furn_prims(f):
     name, kind, (u, v), size, h, color = f[:6]
     P = []
     if FALDONES and kind in ('table', 'round', 'chair'):
-        alto = 0.45 if kind == 'chair' else h  # en la silla, bajo el asiento
+        alto = 0.45 if kind == 'chair' else h
         for p in faldon(kind, u, v, size, alto, f[6] if kind == 'chair' else 0.0):
-            p['color'] = '0.80 0.68 0.50'  # color cartón
+            p['color'] = '0.80 0.68 0.50'
             P.append(p)
     if kind == 'estante':
         su, sv = size
-        nu, nv = f[6]  # hacia dónde mira el lado abierto
+        nu, nv = f[6]
         base = ESTANTE_NIVELES[0]
-        tb = 0.02  # grosor de tablas
-        # mueble cerrado de abajo (lo que ve el lidar)
+        tb = 0.02
         P.append(dict(kind='box', c=(u, v, base / 2), size=(su, sv, base), yaw=0.0))
         zc, hz = (base + h) / 2, h - base
-        if nv:  # abierto hacia +-v: fondo a lo largo de u, costados en los extremos de u
+        if nv:
             P.append(dict(kind='box', c=(u, v - nv * (sv / 2 - tb / 2), zc), size=(su, tb, hz),
                           yaw=0.0))
             for s_ in (-1, 1):
                 P.append(dict(kind='box', c=(u + s_ * (su / 2 - tb / 2), v, zc),
                               size=(tb, sv, hz), yaw=0.0))
-        else:  # abierto hacia +-u
+        else:
             P.append(dict(kind='box', c=(u - nu * (su / 2 - tb / 2), v, zc), size=(tb, sv, hz),
                           yaw=0.0))
             for s_ in (-1, 1):
                 P.append(dict(kind='box', c=(u, v + s_ * (sv / 2 - tb / 2), zc),
                               size=(su, tb, hz), yaw=0.0))
-        # repisas (la superficie queda a la altura del nivel) y tapa de arriba
         for z in ESTANTE_NIVELES[1:] + (h,):
             P.append(dict(kind='box', c=(u, v, z - tb / 2), size=(su, sv, tb), yaw=0.0))
     elif kind == 'box':
@@ -440,7 +331,7 @@ def furn_prims(f):
                     dict(kind='box', c=(u + dx, v + dy, lh / 2), size=(0.05, 0.05, lh), yaw=0.0)
                 )
     elif kind == 'chair':
-        s, yaw = size, f[6]  # yaw = hacia dónde mira la silla (hacia la mesa)
+        s, yaw = size, f[6]
         seat = 0.45
         cy, sy_ = math.cos(yaw), math.sin(yaw)
 
@@ -460,7 +351,7 @@ def furn_prims(f):
                         yaw=yaw,
                     )
                 )
-        bu, bv = rot(-s / 2 + 0.02, 0.0)  # respaldo atrás (lejos de la mesa)
+        bu, bv = rot(-s / 2 + 0.02, 0.0)
         P.append(
             dict(kind='box', c=(bu, bv, seat + (h - seat) / 2), size=(0.04, s, h - seat), yaw=yaw)
         )
@@ -469,9 +360,6 @@ def furn_prims(f):
     return P
 
 
-# ------------------------------------------------------------------------------------------
-# SDF
-# ------------------------------------------------------------------------------------------
 def geom_xml(p):
     if p['kind'] == 'box':
         return '<box><size>%.3f %.3f %.3f</size></box>' % p['size']
@@ -500,7 +388,6 @@ def model_xml(name, prims):
 
 
 def floor_xml():
-    # Piso de madera clara de la casa (solo visual, 1 mm sobre el ground_plane).
     cx, cy = to_world(L / 2, L / 2)
     return (
         f'    <model name="piso_casa">\n      <static>true</static>\n'
@@ -512,52 +399,40 @@ def floor_xml():
     )
 
 
-# ------------------------------------------------------------------------------------------
-# Modelos de los objetos. Medidas APROXIMADAS (cámbialas por las de los objetos reales).
-# Cada objeto es UN cuerpo libre (no static): se puede empujar y agarrar. El origen del modelo está
-# en la BASE del objeto (z = 0 apoyado en la mesa); las piezas son solo visuales y la colisión es
-# una forma simple (lo que importa para agarrar). Sin logos: formas y colores.
-# pieza = (forma, (x, y, z_centro), medidas, color, transparencia)
-#   forma 'cyl': medidas = (radio, alto); 'box': medidas = (sx, sy, sz)
-# ------------------------------------------------------------------------------------------
 NARANJA, ROJO, ROJO_T = '0.86 0.40 0.22', '0.80 0.10 0.12', '0.82 0.08 0.08'
 MODELOS = {
-    # Botella PET de ~500 ml: 6.6 cm de diámetro, 22 cm de alto, 0.55 kg llena.
     'botella': dict(
         masa=0.55,
         col=('cyl', (0.033, 0.22)),
         piezas=[
-            ('cyl', (0, 0, 0.075), (0.033, 0.150), NARANJA, 0),  # cuerpo
-            ('cyl', (0, 0, 0.160), (0.027, 0.020), NARANJA, 0),  # hombro
-            ('cyl', (0, 0, 0.182), (0.015, 0.025), '0.75 0.78 0.80', 0.4),  # cuello (plástico)
-            ('cyl', (0, 0, 0.192), (0.019, 0.004), '0.75 0.78 0.80', 0.2),  # anillo del cuello
-            ('cyl', (0, 0, 0.2075), (0.016, 0.025), ROJO, 0),  # tapa
-            ('cyl', (0, 0, 0.130), (0.034, 0.012), ROJO, 0),  # franjas de la etiqueta
-            ('cyl', (0, 0, 0.0625), (0.034, 0.015), '0.85 0.75 0.20', 0),  # amarilla
-            ('cyl', (0, 0, 0.0500), (0.034, 0.010), '0.30 0.60 0.25', 0),  # verde
+            ('cyl', (0, 0, 0.075), (0.033, 0.150), NARANJA, 0),
+            ('cyl', (0, 0, 0.160), (0.027, 0.020), NARANJA, 0),
+            ('cyl', (0, 0, 0.182), (0.015, 0.025), '0.75 0.78 0.80', 0.4),
+            ('cyl', (0, 0, 0.192), (0.019, 0.004), '0.75 0.78 0.80', 0.2),
+            ('cyl', (0, 0, 0.2075), (0.016, 0.025), ROJO, 0),
+            ('cyl', (0, 0, 0.130), (0.034, 0.012), ROJO, 0),
+            ('cyl', (0, 0, 0.0625), (0.034, 0.015), '0.85 0.75 0.20', 0),
+            ('cyl', (0, 0, 0.0500), (0.034, 0.010), '0.30 0.60 0.25', 0),
             ('cyl', (0, 0, 0.0375), (0.034, 0.015), ROJO, 0),
         ],
     ),
-    # Taza: 8.6 cm de diámetro, 9.5 cm de alto, asa de ~3 cm hacia +x, 0.30 kg.
     'taza': dict(
         masa=0.30,
         col=('cyl', (0.043, 0.095)),
         piezas=[
-            ('cyl', (0, 0, 0.0475), (0.043, 0.095), ROJO_T, 0),  # cuerpo
-            ('cyl', (0, 0, 0.0945), (0.037, 0.002), '0.95 0.95 0.95', 0),  # interior blanco
-            ('box', (0.073, 0, 0.048), (0.012, 0.014, 0.066), ROJO_T, 0),  # asa: vertical
-            ('box', (0.058, 0, 0.075), (0.032, 0.014, 0.012), ROJO_T, 0),  # asa: arriba
-            ('box', (0.058, 0, 0.021), (0.032, 0.014, 0.012), ROJO_T, 0),  # asa: abajo
+            ('cyl', (0, 0, 0.0475), (0.043, 0.095), ROJO_T, 0),
+            ('cyl', (0, 0, 0.0945), (0.037, 0.002), '0.95 0.95 0.95', 0),
+            ('box', (0.073, 0, 0.048), (0.012, 0.014, 0.066), ROJO_T, 0),
+            ('box', (0.058, 0, 0.075), (0.032, 0.014, 0.012), ROJO_T, 0),
+            ('box', (0.058, 0, 0.021), (0.032, 0.014, 0.012), ROJO_T, 0),
         ],
     ),
-    # Paquete de galletas acostado: 19 x 6.2 x 3.5 cm, 0.13 kg. Bajito: la garra tiene que bajar
-    # más para agarrarlo (y tapa más el lidar).
     'galletas': dict(
         masa=0.13,
         col=('box', (0.19, 0.062, 0.035)),
         piezas=[
-            ('box', (0, 0, 0.0175), (0.19, 0.062, 0.035), '0.70 0.08 0.10', 0),  # envoltura
-            ('box', (0.02, 0, 0.0355), (0.12, 0.030, 0.001), '0.85 0.65 0.30', 0),  # franja
+            ('box', (0, 0, 0.0175), (0.19, 0.062, 0.035), '0.70 0.08 0.10', 0),
+            ('box', (0.02, 0, 0.0355), (0.12, 0.030, 0.001), '0.85 0.65 0.30', 0),
         ],
     ),
 }
@@ -582,7 +457,7 @@ def geom_obj(forma, med):
 def objeto_xml(o):
     m = MODELOS[o['modelo']]
     forma, med = m['col']
-    zc = med[1] / 2 if forma == 'cyl' else med[2] / 2  # centro de la colisión (origen = base)
+    zc = med[1] / 2 if forma == 'cyl' else med[2] / 2
     ixx, iyy, izz = inercia(forma, m['masa'], med)
     vis = []
     for k, (f, (px, py, pz), md, col, tr) in enumerate(m['piezas']):
@@ -591,7 +466,6 @@ def objeto_xml(o):
             f'<geometry>{geom_obj(f, md)}</geometry><transparency>{tr}</transparency>'
             f'<material><ambient>{col} 1</ambient><diffuse>{col} 1</diffuse></material></visual>'
         )
-    # fricción alta (mu = 1) para que no resbale en la garra ni en la mesa
     return (
         f'    <model name="{o["nombre"]}">\n'
         f'      <pose>{o["x"]:.3f} {o["y"]:.3f} {o["z"]:.3f} 0 0 {o["yaw"]:.3f}</pose>\n'
@@ -610,7 +484,7 @@ def medio_ancho(o, ang):
     """Medio ancho del objeto (su colisión) medido en la dirección 'ang' (rad, en el plano)."""
     forma, med = MODELOS[o['modelo']]['col']
     if forma == 'cyl':
-        return med[0] + (0.036 if o['modelo'] == 'taza' else 0.0)  # la taza: + el asa
+        return med[0] + (0.036 if o['modelo'] == 'taza' else 0.0)
     a = ang - o['yaw']
     return abs(math.cos(a)) * med[0] / 2 + abs(math.sin(a)) * med[1] / 2
 
@@ -626,14 +500,12 @@ def ubicar_objetos(by_name):
     for nombre, modelo, mueble, prof, lat, yaw, nivel, donde in filas:
         f = by_name[mueble]
         kind, (cu, cv), size, h = f[1], f[2], f[3], f[4]
-        nu, nv = lado[mueble][2]  # dirección mueble -> Milo
+        nu, nv = lado[mueble][2]
         if kind in ('round', 'cyl'):
             half = size
         else:
             half = abs(nu) * size[0] / 2 + abs(nv) * size[1] / 2
-        # punto de la cara frente a Milo, después hacia adentro (prof; negativo = afuera, en el
-        # suelo) y a lo largo de la cara (lat)
-        tu, tv = nv, -nu  # a la izquierda de Milo cuando mira el mueble (mira hacia -n)
+        tu, tv = nv, -nu
         u = cu + nu * (half - prof) + tu * lat
         v = cv + nv * (half - prof) + tv * lat
         yaw_w = math.atan2(-nv, -nu) + yaw
@@ -642,14 +514,10 @@ def ubicar_objetos(by_name):
         o = dict(nombre=nombre, modelo=modelo, mueble=mueble, donde=donde, prof=prof, lateral=lat,
                  u=u, v=v, yaw=yaw_w, z=round(z + 0.001, 3))
         o['x'], o['y'] = to_world(u, v)
-        # pre-agarre (para la validación con el PPO): sobre la normal de la cara por donde llega
-        # Milo, a lo largo de la cara donde está el objeto, con la punta del robot a DIST_PRE del
-        # borde del mueble; mirando hacia el mueble. Solo para objetos sobre muebles.
         if donde == 'mueble':
             d = half + DIST_PRE + PUNTA
             o['pre'] = (*to_world(cu + nu * d + tu * lat, cv + nv * d + tv * lat),
                         math.atan2(-nv, -nu))
-        # profundidad efectiva y si el objeto cabe entero en su superficie
         if donde == 'suelo':
             o['prof_ef'], o['cabe'] = None, True
         elif kind == 'round':
@@ -658,12 +526,12 @@ def ubicar_objetos(by_name):
             o['cabe'] = rho + medio_ancho(o, math.atan2(v - cv, u - cu)) <= size
         elif kind == 'estante':
             o['prof_ef'] = prof
-            fondo = 2 * half - 0.02  # hasta la tabla del fondo
-            ancho = abs(nv) * size[0] + abs(nu) * size[1] - 0.04  # entre los costados
+            fondo = 2 * half - 0.02
+            ancho = abs(nv) * size[0] + abs(nu) * size[1] - 0.04
             ang_in = math.atan2(-nv, -nu)
             o['cabe'] = (prof + medio_ancho(o, ang_in) <= fondo
                          and abs(lat) + medio_ancho(o, ang_in + math.pi / 2) <= ancho / 2)
-        else:  # mesa rectangular: el borde más cercano de los 4
+        else:
             hu, hv = size[0] / 2, size[1] / 2
             du, dv = u - cu, v - cv
             o['prof_ef'] = min(hu - abs(du), hv - abs(dv))
@@ -743,9 +611,6 @@ def write_world(walls, furn, objs=()):
         fh.write(xml)
 
 
-# ------------------------------------------------------------------------------------------
-# Raster (verificación + PNG). Coordenadas casa, margen de 1.5 m afuera.
-# ------------------------------------------------------------------------------------------
 RES = 0.02
 U0, V0 = -1.5, -0.5
 NU, NV = int((L + 2.0 - U0) / RES), int((L + 0.5 - V0) / RES)
@@ -793,7 +658,7 @@ def dist_field(occ):
                 ),
             )
             row = d[i]
-            for j in range(1, NU):  # barrido izq->der
+            for j in range(1, NU):
                 if row[j - 1] + a < row[j]:
                     row[j] = row[j - 1] + a
         for i in range(NV - 2, -1, -1):
@@ -827,11 +692,10 @@ def main():
     allp = walls + [p for _, ps in furn for p in ps]
     by_name = {f[0]: f for f in FURN}
     objs = ubicar_objetos(by_name)
-    allp += [objeto_prim(o) for o in objs]  # los del suelo cuentan como obstáculo físico
+    allp += [objeto_prim(o) for o in objs]
     write_world(walls, furn, objs)
     write_objetos_yaml(objs)
 
-    # --- Poses objetivo
     goals = []
     for loc in LOCATIONS:
         rid, fname, (nu, nv), room, place = loc[:5]
@@ -846,17 +710,15 @@ def main():
                 half = min(size[0], size[1]) / 2
         gu = cu + nu * (half + APPROACH) - nv * shift
         gv = cv + nv * (half + APPROACH) + nu * shift
-        yaw = math.atan2(-nv, -nu)  # mirando al mueble
+        yaw = math.atan2(-nv, -nu)
         goals.append(dict(name=fname, id=rid, room=room, place=place, u=gu, v=gv, yaw=yaw))
     for rname, (ru, rv, ryaw) in ROOMS.items():
         goals.append(dict(name=rname, id=None, room=rname, place=False, u=ru, v=rv, yaw=ryaw))
 
-    # --- Verificación
-    occ_phys = raster(allp)  # choque físico (todo hasta 1.3 m)
-    occ_lidar = raster(allp, LIDAR_Z)  # lo que ve el lidar
+    occ_phys = raster(allp)
+    occ_lidar = raster(allp, LIDAR_Z)
     d_phys = dist_field(occ_phys)
     ok = True
-    # (a) cada pose: footprint libre (+3 cm) y la punta lejos del stop del filtro de seguridad
     for g in goals:
         fp = footprint_cells(g['u'], g['v'], g['yaw'])
         clear = float(d_phys[fp].min())
@@ -864,8 +726,6 @@ def main():
         if clear < 0.03:
             print(f'  [MAL] {g["name"]}: el footprint choca (holgura {clear:.2f} m)')
             ok = False
-        # zona de parada del filtro de seguridad (caja del robot + 0.30 m adelante + 0.10 a los
-        # lados), contra lo que ve el lidar: si hay algo ahí, el filtro no dejaría llegar.
         c, s = math.cos(g['yaw']), math.sin(g['yaw'])
         du, dv = UU - g['u'], VV - g['v']
         lx, ly = du * c + dv * s, -du * s + dv * c
@@ -876,7 +736,6 @@ def main():
         if occ_lidar[du * du + dv * dv < TURN_R**2].any():
             print(f'  [OJO] {g["name"]}: no podría girar en el lugar (algo a < {TURN_R:.2f} m)')
             ok = False
-    # (b) alcanzabilidad: BFS desde la partida con un disco de 0.27 m (Milo pasando de frente)
     free = d_phys > 0.27
     start = idx(*SPAWN_UV)
     seen = np.zeros_like(free)
@@ -894,11 +753,9 @@ def main():
         if not g['reach']:
             print(f'  [MAL] {g["name"]}: no se llega desde la partida')
             ok = False
-    # puertas: holgura libre
     for dn, (du_, dv_) in DOORS.items():
         print(f'  puerta {dn:24s} libre a cada lado del centro: {d_phys[idx(du_, dv_)]:.2f} m')
 
-    # (c) objetos: enteros en su superficie y en la franja "solo relajando" del filtro
     for o in objs:
         if o['donde'] == 'suelo':
             print(f'  objeto {o["nombre"]:18s} en el suelo junto a {o["mueble"]:13s} '
@@ -916,13 +773,12 @@ def main():
               f'prof efectiva {pe:.2f} m ({zona}){nota}')
         ok &= o['cabe'] and en_franja
 
-    # (d) tus lugares anotados (casa_lugares.yaml): ¿siguen libres con las mesas nuevas?
     try:
         import yaml
 
         with open(LUGARES) as fh:
             lug = yaml.safe_load(fh) or {}
-        lug = lug.get('lugares', lug)  # formato plano o completo
+        lug = lug.get('lugares', lug)
         for nombre, p in lug.items():
             u, v = p['x'] + L / 2, p['y'] + L / 2
             fp = footprint_cells(u, v, p['yaw'])
@@ -938,11 +794,10 @@ def main():
     except (ImportError, OSError, KeyError, TypeError) as e:
         print(f'  (no revisé {os.path.basename(LUGARES)}: {e})')
 
-    # --- PNG
     try:
         from PIL import Image, ImageDraw
 
-        sc = 4  # 1 celda = 4 px -> 2 cm = 4 px
+        sc = 4
         img = np.full((NV, NU, 3), 255, np.uint8)
         house = (UU >= 0) & (UU <= L) & (VV >= 0) & (VV <= L)
         img[house] = (238, 216, 176)
@@ -956,7 +811,6 @@ def main():
         def px(u, v):
             return ((u - U0) * k, (V0 + NV * RES - v) * k)
 
-        # número del rulebook sobre cada mueble (como en el plano)
         for rid, fname, *_ in LOCATIONS:
             (fu, fv) = next(f[2] for f in FURN if f[0] == fname)
             x0, y0 = px(fu, fv)

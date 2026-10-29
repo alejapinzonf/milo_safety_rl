@@ -5,8 +5,6 @@ import math
 import yaml
 
 
-# Archivo de lugares que anotas tú después de mapear (con tf2_echo), al lado del mapa.
-# Ruta dentro del contenedor (ros2_ws/ de tu PC = /ros2_ws).
 DEFAULT_PATH = '/ros2_ws/src/andesrobot_slam/maps/casa_lugares.yaml'
 
 

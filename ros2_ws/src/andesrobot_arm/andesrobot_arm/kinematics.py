@@ -14,10 +14,8 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-# Cadena del brazo solo (6 articulaciones): de la base del brazo al punto de agarre.
 ARM_BASE = 'arm_base_link_1'
 ARM_TIP = 'gripper_tcp'
-# Cadena brazo + lift (7 articulaciones), desde el suelo. Supone la base quieta.
 LIFT_BASE = 'base_footprint'
 LIFT_JOINT = 'vertical_lift_joint'
 
@@ -55,7 +53,6 @@ def rotation_log(rot):
     if angle < 1e-9:
         return np.zeros(3)
     if np.pi - angle < 1e-6:
-        # Cerca de pi la parte antisimétrica se anula: el eje sale de la parte simétrica.
         diag = np.clip((np.diag(rot) + 1.0) / 2.0, 0.0, None)
         axis = np.sqrt(diag)
         i = int(np.argmax(axis))
@@ -144,7 +141,6 @@ class ArmKinematics:
                           el.find('child').get('link'), make_pose(xyz, rpy), axis, lower, upper)
             joints_by_child[joint.child] = joint
 
-        # Recorrer desde la punta hacia la base (cada link tiene un solo joint padre).
         chain = []
         link = tip
         while link != base:
@@ -226,8 +222,6 @@ class ArmKinematics:
         for i, joint in enumerate(self.joints):
             if (joint.type == 'revolute' and joint.lower is not None
                     and joint.upper - joint.lower >= 2.0 * np.pi - 1e-6):
-                # Un rango de vuelta completa (los ±π provisorios) da la vuelta en vez de
-                # recortar: así una solución cerca de -π puede seguir hasta +π.
                 q[i] = (q[i] - joint.lower) % (2.0 * np.pi) + joint.lower
             elif joint.lower is not None:
                 q[i] = np.clip(q[i], joint.lower, joint.upper)
@@ -281,7 +275,6 @@ class ArmKinematics:
             e = np.concatenate([e_pos, e_rot])[rows]
             jac = self.jacobian(q)[rows]
             lam2 = damping ** 2
-            # DLS ponderado: dq = W^-1 J^T (J W^-1 J^T + lambda^2 I)^-1 e
             jw = jac * inv_weights
             reg = lam2 * np.eye(jac.shape[0])
             dq = inv_weights * (jac.T @ np.linalg.solve(jw @ jac.T + reg, e))

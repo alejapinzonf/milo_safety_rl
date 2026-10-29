@@ -2,7 +2,7 @@
 # Funciones comunes de sim.sh y robot.sh (no se ejecuta solo).
 # Uso: source docker/lib.sh; milo_init <sim|robot> [cpu]
 #
-# "source" significa que sim.sh / robot.sh cargan estas funciones dentro de su propio proceso,
+# "source" significa que sim.sh cargan estas funciones dentro de su propio proceso,
 # como si las hubieran escrito ellos. Así no repetimos el mismo código en los dos scripts.
 
 # ---------------------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ milo_running() {
 }
 
 # Igual que milo_running, pero si NO está corriendo avisa y termina el script.
-# $0 = nombre del script que llamó (./sim.sh o ./robot.sh), para decirte qué correr primero.
+# $0 = nombre del script que llamó (./sim.sh), para decirte qué correr primero.
 milo_need_running() {
   milo_running || { echo "[milo] El contenedor no está levantado. Primero: $0"; exit 1; }
 }

@@ -13,6 +13,9 @@ Se escribe cada nodo a mano (en vez de incluir nav2_bringup) para controlar esos
 en nav2_bringup (Humble) el behavior_server publica directo en /cmd_vel y se saltaría el mux.
 """
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -24,20 +27,20 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     pkg = FindPackageShare('andesrobot_navigation')
     use_sim_time = LaunchConfiguration('use_sim_time')
-    params = LaunchConfiguration('params_file')
+    yaml_nav2 = os.path.join(get_package_share_directory('andesrobot_navigation'), 'config',
+                             'nav2_params.yaml')
+    params = ['--params-file', yaml_nav2]
     autostart = LaunchConfiguration('autostart')
 
-    # Lo que comparten todos los nodos de Nav2: el yaml + el reloj.
-    common = [params, {'use_sim_time': use_sim_time}]
-    # Todos los nodos de Nav2 corren en el namespace raíz; TF global.
+    common = [{'use_sim_time': use_sim_time}]
     tf = [('/tf', 'tf'), ('/tf_static', 'tf_static')]
 
-    # ---------------- Localización ----------------
     map_server = Node(
         package='nav2_map_server',
         executable='map_server',
         name='map_server',
         output='screen',
+        ros_arguments=params,
         parameters=common + [{'yaml_filename': LaunchConfiguration('map')}],
         remappings=tf,
     )
@@ -46,13 +49,14 @@ def generate_launch_description():
         executable='amcl',
         name='amcl',
         output='screen',
-        # Pose inicial: la del yaml (punto de partida) salvo que se pase x:= y:= yaw:=
+        ros_arguments=params,
         parameters=common
         + [
             {
                 'initial_pose.x': ParameterValue(LaunchConfiguration('x'), value_type=float),
                 'initial_pose.y': ParameterValue(LaunchConfiguration('y'), value_type=float),
                 'initial_pose.yaw': ParameterValue(LaunchConfiguration('yaw'), value_type=float),
+                'tf_broadcast': ParameterValue(LaunchConfiguration('amcl_tf'), value_type=bool),
             }
         ],
         remappings=tf,
@@ -71,12 +75,12 @@ def generate_launch_description():
         ],
     )
 
-    # ---------------- Navegación ----------------
     controller = Node(
         package='nav2_controller',
         executable='controller_server',
         name='controller_server',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf + [('cmd_vel', '/nav/cmd_vel_raw')],
     )
@@ -85,6 +89,7 @@ def generate_launch_description():
         executable='smoother_server',
         name='smoother_server',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf,
     )
@@ -93,6 +98,7 @@ def generate_launch_description():
         executable='planner_server',
         name='planner_server',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf,
     )
@@ -101,6 +107,7 @@ def generate_launch_description():
         executable='behavior_server',
         name='behavior_server',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf + [('cmd_vel', '/nav/cmd_vel')],
     )
@@ -109,6 +116,7 @@ def generate_launch_description():
         executable='bt_navigator',
         name='bt_navigator',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf,
     )
@@ -117,6 +125,7 @@ def generate_launch_description():
         executable='waypoint_follower',
         name='waypoint_follower',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf,
     )
@@ -125,6 +134,7 @@ def generate_launch_description():
         executable='velocity_smoother',
         name='velocity_smoother',
         output='screen',
+        ros_arguments=params,
         parameters=common,
         remappings=tf + [('cmd_vel', '/nav/cmd_vel_raw'), ('cmd_vel_smoothed', '/nav/cmd_vel')],
     )
@@ -150,7 +160,6 @@ def generate_launch_description():
         ],
     )
 
-    # ---------------- Mux: teclado > Nav2 ----------------
     mux = Node(
         package='twist_mux',
         executable='twist_mux',
@@ -163,7 +172,6 @@ def generate_launch_description():
         remappings=[('cmd_vel_out', '/safety/cmd_vel_in')],
     )
 
-    # ---------------- Ubicaciones en RViz ----------------
     markers = Node(
         package='andesrobot_navigation',
         executable='marcadores',
@@ -179,15 +187,11 @@ def generate_launch_description():
             DeclareLaunchArgument('map', description='Ruta al .yaml del mapa (de ./sim.sh mapa)'),
             DeclareLaunchArgument('use_sim_time', default_value='true'),
             DeclareLaunchArgument('autostart', default_value='true'),
-            DeclareLaunchArgument(
-                'params_file',
-                default_value=PathJoinSubstitution([pkg, 'config', 'nav2_params.yaml']),
-            ),
+            DeclareLaunchArgument('amcl_tf', default_value='true'),
             DeclareLaunchArgument(
                 'ubicaciones',
                 default_value='/ros2_ws/src/andesrobot_slam/maps/casa_lugares.yaml',
             ),
-            # Pose inicial del robot en el mapa (con punto decimal).
             DeclareLaunchArgument('x', default_value='0.0'),
             DeclareLaunchArgument('y', default_value='0.0'),
             DeclareLaunchArgument('yaw', default_value='0.0'),

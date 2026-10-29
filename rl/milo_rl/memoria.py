@@ -21,7 +21,7 @@ from . import config as C
 class Memoria:
     def __init__(self, params):
         self.p = params
-        self.scans = []  # lista de dict(pts (N,2) odom, t, s, psi)
+        self.scans = []
 
     def reset(self):
         self.scans = []
@@ -61,7 +61,6 @@ class Memoria:
             rel = loc - o_lidar
             k = np.round((np.arctan2(rel[:, 1], rel[:, 0]) + math.pi) / bin_w).astype(int) % N
             rango = np.hypot(rel[:, 0], rel[:, 1])
-            # scan más reciente que vio cada dirección, y el punto más cercano de ese scan ahí
             ultimo = np.full(N, -1)
             np.maximum.at(ultimo, k, SI)
             for j, kk in enumerate(idx):

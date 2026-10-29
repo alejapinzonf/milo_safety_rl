@@ -33,17 +33,14 @@ def dibujar(env, ax=None, titulo=None):
     for f in env.estaticas:
         alto = f.z[0] <= C.LIDAR_Z <= f.z[1]
         _forma(ax, f, color=COL.get(f.tipo, '#999'), alpha=0.9 if alto else 0.35)
-    # objeto
     ob = e.objeto
     ax.plot(*ob['pos'], marker='*', ms=14, color='#e0302c', mec='k', zorder=6)
     ax.plot(*env.obj_est, marker='x', ms=7, color='k', zorder=6)
-    # aproximación y salida
     ax.plot(*e.aprox['W'], marker='o', ms=5, color='#2f6fd6', mfc='none')
     ax.plot(*e.salida, marker='s', ms=8, color='#3a9a4a', mfc='none', mew=2)
     if env.camino:
         c = np.array(env.camino)
         ax.plot(c[:, 0], c[:, 1], ':', color='#2f6fd6', lw=1)
-    # lidar
     o = a_mundo(env.pose, [C.LIDAR_X, 0.0])
     dirs = env._dirs_loc @ np.array([[math.cos(env.pose[2]), math.sin(env.pose[2])],
                                      [-math.sin(env.pose[2]), math.cos(env.pose[2])]])
@@ -53,7 +50,6 @@ def dibujar(env, ax=None, titulo=None):
             ax.plot(*zip(o, o + dirs[k] * d), color='#d0402c', lw=0.6, alpha=0.7)
         else:
             ax.plot(*zip(o, o + dirs[k] * env.rangos[k]), color='#4a7bd0', lw=0.3, alpha=0.35)
-    # personas
     for h in e.humanos:
         for f in h.formas():
             _forma(ax, f, color='#7a3fb0', alpha=0.85 if f.r < 0.1 else 0.25)
@@ -62,7 +58,6 @@ def dibujar(env, ax=None, titulo=None):
     for pos, vel, edad, _ in env.det.estimaciones(env.t):
         if edad < 0.5:
             ax.add_patch(mp.Circle(pos, 0.3, fill=False, ec='#7a3fb0', ls=':'))
-    # robot
     base, cap = env._formas_robot()
     _forma(ax, base, color='#2f6fd6', alpha=0.8)
     _forma(ax, cap, color='#e8822a', alpha=0.9)

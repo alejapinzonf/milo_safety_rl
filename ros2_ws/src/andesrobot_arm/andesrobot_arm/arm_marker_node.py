@@ -23,7 +23,6 @@ def axis_controls():
     """Controles para mover y girar en/alrededor de X, Y y Z."""
     controls = []
     h = 0.5 ** 0.5
-    # Orientación de cada control (w, x, y, z): un control actúa sobre su propio eje X.
     for name, (w, x, y, z) in (('x', (h, h, 0.0, 0.0)),
                                ('z', (h, 0.0, h, 0.0)),
                                ('y', (h, 0.0, 0.0, h))):
@@ -56,7 +55,6 @@ class ArmMarkerNode(Node):
 
     def __init__(self):
         super().__init__('arm_marker_node')
-        # frame fijo al robot (no sube con el lift) en el que se publica el objetivo.
         self.frame = self.declare_parameter('frame', 'base_footprint').value
         self.tcp_frame = self.declare_parameter('tcp_frame', 'gripper_tcp').value
 
@@ -69,7 +67,6 @@ class ArmMarkerNode(Node):
         self.menu.insert('Enviar objetivo', callback=self.on_send)
         self.menu.insert('Volver a la pinza', callback=self.on_reset)
 
-        # Esperar a que exista la TF para crear el marcador justo sobre la pinza.
         self.startup_timer = self.create_timer(0.5, self.try_create_marker)
 
     def current_tcp_pose(self):
@@ -113,7 +110,6 @@ class ArmMarkerNode(Node):
         self.target_pub.publish(msg)
 
     def on_feedback(self, feedback):
-        # Solo al soltar el mouse (no mientras se arrastra, para no llenar de objetivos).
         if feedback.event_type == InteractiveMarkerFeedback.MOUSE_UP:
             self.publish_target(feedback.pose)
 

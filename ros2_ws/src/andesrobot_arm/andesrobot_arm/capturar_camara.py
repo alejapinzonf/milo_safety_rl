@@ -38,7 +38,6 @@ def image_to_array(msg):
     """sensor_msgs/Image -> arreglo numpy (alto x ancho [x canales])."""
     dtype, ch = ENCODINGS[msg.encoding]
     a = np.frombuffer(bytes(msg.data), dtype=dtype)
-    # step = bytes por fila (puede traer relleno al final de cada fila).
     a = a.reshape(msg.height, msg.step // np.dtype(dtype).itemsize)
     a = a[:, :msg.width * ch].reshape(msg.height, msg.width, ch)
     if msg.encoding == 'bgr8':
@@ -80,7 +79,6 @@ def cloud_points(msg):
                     for k in ('x', 'y', 'z')], axis=1)
     rgb = None
     if 'rgb' in fields:
-        # El color viene empaquetado en 4 bytes: B, G, R, (relleno).
         o = fields['rgb']
         rgb = raw[:, [o + 2, o + 1, o]]
     keep = np.isfinite(xyz).all(axis=1)
@@ -117,7 +115,6 @@ class CapturarCamara(Node):
         self.carpeta = carpeta or os.path.join('/ros2_ws/capturas', time.strftime('%Y%m%d_%H%M%S'))
         self.timeout = self.declare_parameter('timeout', 15.0).value
         self.msgs = {}
-        # qos_profile_sensor_data: la misma calidad de servicio que usan las cámaras.
         for canal, topic in topics.items():
             tipo = PointCloud2 if canal == 'nube' else Image
             self.create_subscription(tipo, topic, lambda m, c=canal: self.msgs.setdefault(c, m),
@@ -143,7 +140,6 @@ class CapturarCamara(Node):
             m = self.msgs['ir']
             a = image_to_array(m)
             if a.dtype != np.uint8:
-                # IR de 16 bits (cámara real): se escala a 8 bits para el PNG de vista.
                 a = (255.0 * a / max(a.max(), 1)).astype(np.uint8)
             PILImage.fromarray(a).save(os.path.join(self.carpeta, 'ir.png'))
             lineas.append('ir           %dx%d %s  frame %s' % (

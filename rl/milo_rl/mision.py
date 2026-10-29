@@ -9,16 +9,14 @@ El nodo le pasa en cada tick lo que midió y recibe qué mandar:
     sal['cancelar']      -> cancelar el goal de Nav2
 y avisa con mision.nav_resultado(ok) cuando Nav2 termina.
 """
-import math
-
 import numpy as np
 
 from . import config as C
 
-T_DECISION = 0.2  # [s] cada cuánto elige θ la política
-T_NAV_MAX = 150.0  # [s] máximo para llegar al pre-agarre
-T_ACERCAR_MAX = 60.0  # [s] máximo para orientarse y acercarse
-D_RETROCESO = 0.6  # [m] cuánto retrocede al terminar (queda libre para ir al siguiente)
+T_DECISION = 0.2
+T_NAV_MAX = 150.0
+T_ACERCAR_MAX = 60.0
+D_RETROCESO = 0.6
 
 COLUMNAS = ['modo', 'repeticion', 'objeto', 'resultado', 't_total', 't_nav', 'margen_final',
             'exposicion', 'costo_soc', 'd_min_mueble', 'd_min_persona', 'choque', 'intervenciones',
@@ -38,7 +36,6 @@ class Mision:
         self.nav_ok = None
         self.actual = None
 
-    # ------------------------------------------------------------------------------------------
     def nav_resultado(self, ok):
         self.nav_ok = bool(ok)
 
@@ -87,7 +84,7 @@ class Mision:
                 v_des = w_des = 0.0
             elif t - self.t_acercar > T_ACERCAR_MAX:
                 self._cerrar(t, 'falla_acercar')
-        elif self.estado == 'agarre':  # el brazo agarraría acá (en Gazebo va bloqueado): 1 s quieto
+        elif self.estado == 'agarre':
             if t - self.t_parado > 1.0:
                 self.estado, self.pose_ret, self.t_ret = 'retrocediendo', np.array(pose[:2]), t
                 ad.fase = 'retroceder'
